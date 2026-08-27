@@ -543,11 +543,12 @@ a { color: inherit; }
   .rail-i {
     flex: 1; width: auto; height: 58px; border-radius: 0; box-shadow: none;
     display: flex; flex-direction: column; gap: 2px;
+    align-items: center; justify-content: center;   /* 아이콘·글자를 버튼 한가운데로 */
   }
   .rail-l { display: block; font-size: 11px; font-weight: 800; }
   .rail-ico svg { width: 19px; height: 19px; }
   .rail-ico { font-size: 10.5px; }
-  body { padding-bottom: 58px; }
+  body { padding-bottom: calc(58px + env(safe-area-inset-bottom)); }
   body.no-rail { padding-bottom: 0; }
   .sheet-ft { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
 }
