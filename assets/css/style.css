@@ -299,6 +299,8 @@ a { color: inherit; }
 /* ══════════════════════════ 타일 ══════════════════════════ */
 .tiles-sec { background: var(--bg-2); padding: 28px 0; border-bottom: 1px solid var(--line); }
 .tiles { display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); }
+/* 개수가 홀수면 마지막 타일이 한 칸만 차지해 어색하므로 가로로 늘린다 */
+.tiles > .tile:last-child:nth-child(odd) { grid-column: 1 / -1; }
 .tile {
   position: relative; text-align: left; cursor: pointer;
   background: #fff; border: 1px solid var(--line); border-radius: var(--r);
@@ -354,6 +356,8 @@ a { color: inherit; }
 
 /* 통계 */
 .stats { margin-top: 24px; display: grid; gap: 10px; grid-template-columns: repeat(2, 1fr); }
+/* 개수가 홀수면 마지막 카드가 한 칸만 차지해 어색하므로 가로로 늘린다 */
+.stats > .stat:last-child:nth-child(odd) { grid-column: 1 / -1; }
 .stat { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); border-radius: var(--r); padding: 18px 14px; text-align: center; }
 .stat .v { font-size: 24px; font-weight: 800; letter-spacing: -.03em; }
 .stat .k { margin-top: 4px; font-size: 12.5px; color: var(--navy-lt); }
@@ -550,8 +554,10 @@ a { color: inherit; }
 
 /* ══════════════════════════ 데스크톱 ══════════════════════════ */
 @media (min-width: 768px) {
-  .tiles { grid-template-columns: repeat(4, 1fr); }
-  .stats { grid-template-columns: repeat(4, 1fr); }
+  .tiles { grid-template-columns: repeat(3, 1fr); }
+  .tiles > .tile:last-child:nth-child(odd) { grid-column: auto; }
+  .stats { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .stats > .stat:last-child:nth-child(odd) { grid-column: auto; }
   .hero-in { padding: 52px 20px 60px; }
   .gal-item { flex: 0 0 50%; padding-right: 12px; }
   .offer { grid-template-columns: 1.1fr .9fr; padding: 30px 28px; }
@@ -625,3 +631,52 @@ a { color: inherit; }
 
 .btn.cta.ask { background: var(--navy); color: #fff; }
 .sheet-bd .lead { margin-top: 0; padding-top: 14px; }
+
+/* ══════════════════════════ 연혁 ══════════════════════════ */
+.hist { margin-top: 30px; }
+.hist-h {
+  font-size: 12px; font-weight: 800; letter-spacing: .1em; color: var(--brand);
+  padding-bottom: 10px; border-bottom: 1px solid var(--line);
+}
+.hist-list { margin: 0; padding: 0; list-style: none; }
+.hist-i {
+  position: relative; display: flex; gap: 14px; align-items: baseline;
+  padding: 11px 0 11px 16px; border-bottom: 1px solid var(--line-2);
+}
+/* 왼쪽 세로선과 점 — 연도가 시간 순으로 이어지는 느낌을 준다 */
+.hist-i::before {
+  content: ''; position: absolute; left: 3px; top: 0; bottom: 0; width: 1px;
+  background: var(--line);
+}
+.hist-i:first-child::before { top: 18px; }
+.hist-i:last-child::before { bottom: auto; height: 18px; }
+.hist-i::after {
+  content: ''; position: absolute; left: 0; top: 17px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #fff; border: 1.5px solid var(--line);
+}
+.hist-i.hi::after { background: var(--brand); border-color: var(--brand); }
+.hist-d {
+  flex: none; width: 60px; font-size: 13px; font-weight: 700;
+  color: var(--ink-3); font-variant-numeric: tabular-nums;
+}
+.hist-t { font-size: 14.5px; color: var(--ink-2); }
+.hist-i.hi .hist-d { color: var(--brand); }
+.hist-i.hi .hist-t { color: var(--ink); font-weight: 700; }
+
+.hist-all { margin-top: 16px; }
+.hist-all summary {
+  cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13.5px; font-weight: 700; color: var(--ink-2);
+  border: 1px solid var(--line); border-radius: 999px; padding: 9px 16px; background: #fff;
+}
+.hist-all summary::-webkit-details-marker { display: none; }
+.hist-all summary::after { content: '▾'; color: var(--ink-3); }
+.hist-all[open] summary::after { content: '▴'; }
+.hist-all summary:hover { border-color: var(--brand); color: var(--brand); }
+.hist-list.full { margin-top: 14px; }
+
+@media (min-width: 768px) {
+  .hist-d { width: 72px; font-size: 13.5px; }
+  .hist-t { font-size: 15px; }
+}

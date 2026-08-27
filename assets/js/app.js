@@ -106,18 +106,17 @@
       li.addEventListener('error', function () { li.hidden = true; });
     }
     if (shop.heroImage) {
-      var bg = $('#heroBg');
-      var probe = new Image();
-      probe.onload = function () {
-        bg.style.backgroundImage = 'url("' + shop.heroImage + '")';
+      findImage(shop.heroImage, function (url) {
+        var bg = $('#heroBg');
+        bg.style.backgroundImage = 'url("' + url + '")';
         bg.classList.add('has-img');
-      };
-      probe.src = shop.heroImage;
+      });
     }
 
     var b = CFG.benefit || {};
     var bt = $('[data-benefit-title]'); if (bt) bt.textContent = b.title || '';
-    var bn = $('[data-benefit-note]'); if (bn) bn.textContent = b.note || '';
+    var bn = $('[data-benefit-note]');
+    if (bn) { bn.textContent = b.note || ''; bn.hidden = !b.note; }
     var bi = $('[data-benefit-items]');
     if (bi && b.items) b.items.forEach(function (t) { bi.appendChild(el('li', '', esc(t))); });
     var lp = $('[data-lead-privacy]');
@@ -138,6 +137,7 @@
     }
 
     renderAbout();
+    renderHistory();
     renderWarranty();
     renderMap();
     injectSchema();
@@ -150,6 +150,41 @@
     if (!dial && !links.kakaoChat && !links.naverReserve) setupWarning();
 
     installGTM((CFG.gtm || {}).containerId);
+  }
+
+
+  /* ---------- 사진 찾기 ----------
+     설정에 적힌 경로의 확장자만 바꿔가며 실제로 있는 파일을 찾는다.
+     `assets/img/hero.svg` 로 적혀 있어도 hero.jpg 를 넣어두면 그걸 쓴다.
+     사진 넣을 때마다 config.js 를 고치지 않아도 되게 하기 위한 것. */
+  var PHOTO_EXTS = ['.jpg', '.jpeg', '.png', '.webp'];   // 실제 사진
+  var PLACEHOLDER_EXTS = ['.svg'];                       // '준비 중' 자리표시
+
+  // 찾는 순서: 설정에 적힌 경로 -> 다른 사진 확장자 -> 자리표시(svg)
+  // 자리표시를 맨 뒤에 두어야 진짜 사진을 넣었을 때 그쪽이 쓰인다.
+  function imgCandidates(path) {
+    if (!path) return [];
+    var dot = path.lastIndexOf('.');
+    if (dot < 0) return [path];
+    var base = path.slice(0, dot), ext = path.slice(dot).toLowerCase();
+    var list = [path];
+    PHOTO_EXTS.concat(PLACEHOLDER_EXTS).forEach(function (e) {
+      if (e !== ext) list.push(base + e);
+    });
+    return list;
+  }
+
+  // 후보를 차례로 시도해서 처음 성공한 주소를 돌려준다. 전부 실패하면 onFail.
+  function findImage(path, onFound, onFail) {
+    var list = imgCandidates(path), i = 0;
+    (function next() {
+      if (i >= list.length) { if (onFail) onFail(); return; }
+      var url = list[i++];
+      var probe = new Image();
+      probe.onload = function () { onFound(url); };
+      probe.onerror = next;
+      probe.src = url;
+    })();
   }
 
   /* ---------- 회사소개 · 보증 · 오시는 길 ---------- */
@@ -183,6 +218,35 @@
     ]);
   }
 
+  function renderHistory() {
+    var list = (CFG.about || {}).history || [];
+    var box = $('#hist');
+    if (!box) return;
+    if (!list.length) { box.hidden = true; return; }
+    box.hidden = false;
+
+    function row(h) {
+      var li = el('li', 'hist-i' + (h.hi ? ' hi' : ''));
+      li.innerHTML = '<span class="hist-d">' + esc(h.d) + '</span>' +
+                     '<span class="hist-t">' + esc(h.t) + '</span>';
+      return li;
+    }
+
+    var top = $('#histTop');
+    top.innerHTML = '';
+    var hi = list.filter(function (h) { return h.hi; });
+    (hi.length ? hi : list.slice(-6)).forEach(function (h) { top.appendChild(row(h)); });
+
+    var full = $('#histFull');
+    full.innerHTML = '';
+    list.forEach(function (h) { full.appendChild(row(h)); });
+    $('#histCount').textContent = '전체 연혁 보기 (' + list.length + '건)';
+
+    $('#histAll').addEventListener('toggle', function () {
+      if ($('#histAll').open) track('history_open', {});
+    });
+  }
+
   function renderWarranty() {
     var w = CFG.warranty || {};
     var sec = $('#warranty');
@@ -210,8 +274,9 @@
     ]);
     if (shop.mapImage) {
       var wrap = $('.map-wrap');
-      var img = new Image();
-      img.onload = function () {
+      findImage(shop.mapImage, function (url) {
+        var img = new Image();
+        img.src = url;
         var box = el('a', 'map-img');
         box.href = links.naverPlace || '#';
         if (links.naverPlace) { box.target = '_blank'; box.rel = 'noopener'; }
@@ -224,8 +289,7 @@
         box.addEventListener('click', function () {
           track('naver_place_click', { location: 'map_image' });
         });
-      };
-      img.src = shop.mapImage;
+      });
     }
     if (links.naverPlace) {
       var b = $('#gtm-place');
@@ -1061,12 +1125,19 @@
     items.forEach(function (g, i) {
       var it = el('div', 'gal-item');
       it.innerHTML = '<div class="gal-ph"><span class="num">' + esc(g.step) + '</span>' +
-        '<img alt="' + esc(g.title) + '" src="' + esc(g.file) + '" loading="lazy">' +
+        '<img alt="' + esc(g.title) + '" loading="lazy">' +
         '<span class="ph-txt" hidden>사진 준비 중</span></div>' +
         '<div class="gal-txt"><div class="t">' + esc(g.title) + '</div>' +
         '<div class="d">' + esc(g.desc) + '</div></div>';
       var img = $('img', it);
-      img.addEventListener('error', function () { img.hidden = true; $('.ph-txt', it).hidden = false; });
+      img.hidden = true;
+      findImage(g.file, function (url) {
+        img.src = url;
+        img.hidden = false;
+        $('.ph-txt', it).hidden = true;
+      }, function () {
+        $('.ph-txt', it).hidden = false;   // 사진이 하나도 없으면 자리표시
+      });
       tr.appendChild(it);
       var d = el('button');
       d.type = 'button';
@@ -1337,11 +1408,6 @@
     });
     $$('[data-nav-start]').forEach(function (a) {
       a.addEventListener('click', function () { $('#carSearch').focus({ preventScroll: true }); });
-    });
-    $('#tileAsk').addEventListener('click', function () {
-      var t = $('#gtm-kakao').hidden ? $('#gtm-call') : $('#gtm-kakao');
-      if (!t.hidden) t.click();
-      else document.getElementById('offer').scrollIntoView({ behavior: 'smooth' });
     });
 
     $('#sheetClose').addEventListener('click', function () { closeSheet(); });

@@ -14,7 +14,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="canonical" href="https://dsauto.me/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23e2551e'/%3E%3Ccircle cx='16' cy='16' r='8' fill='none' stroke='white' stroke-width='2.6'/%3E%3Ccircle cx='16' cy='16' r='2.4' fill='white'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="assets/css/style.css?v=1787806670">
+<link rel="stylesheet" href="assets/css/style.css?v=1787808779">
 </head>
 <body>
 
@@ -155,7 +155,7 @@
   </div>
 </section>
 
-<!-- ══════════════════════════ 타일 4개 ══════════════════════════ -->
+<!-- ══════════════════════════ 타일 ══════════════════════════ -->
 <section class="tiles-sec">
   <div class="wrap">
     <div class="tiles">
@@ -181,14 +181,6 @@
         </span>
         <span class="tile-t">경정비</span>
         <span class="tile-s">엔진오일 · 브레이크</span>
-        <span class="tile-more">+</span>
-      </button>
-      <button type="button" class="tile" id="tileAsk">
-        <span class="tile-ico">
-          <svg viewBox="0 0 24 24"><path d="M4 5h16v11H12l-5 4v-4H4z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
-        </span>
-        <span class="tile-t">기타 문의</span>
-        <span class="tile-s">바로 상담 연결</span>
         <span class="tile-more">+</span>
       </button>
     </div>
@@ -230,6 +222,15 @@
     <h2 class="sec-h" data-about-title></h2>
     <p class="about-lead" data-about-lead></p>
     <dl class="about-facts" data-about-facts></dl>
+
+    <div class="hist" id="hist" hidden>
+      <p class="hist-h">주요 연혁</p>
+      <ol class="hist-list" id="histTop"></ol>
+      <details class="hist-all" id="histAll">
+        <summary><span id="histCount"></span></summary>
+        <ol class="hist-list full" id="histFull"></ol>
+      </details>
+    </div>
   </div>
 </section>
 
@@ -367,8 +368,8 @@
   </a>
 </aside>
 
-<script src="data/data.js?v=1787806670"></script>
-<script src="config.js?v=1787807598"></script>
-<script src="assets/js/app.js?v=1787807696"></script>
+<script src="data/data.js?v=1787809780"></script>
+<script src="config.js?v=1787809597"></script>
+<script src="assets/js/app.js?v=1787809734"></script>
 </body>
 </html>
