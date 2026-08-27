@@ -76,7 +76,7 @@ a { color: inherit; }
   min-height: var(--hd-h); display: flex; align-items: center; gap: 20px;
 }
 .hd-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; flex: none; }
-.hd-logo img { height: 34px; width: auto; }
+.hd-logo img { height: 38px; width: auto; max-width: 120px; object-fit: contain; }
 .hd-logo-txt { display: flex; flex-direction: column; line-height: 1.2; }
 .hd-logo-txt b { font-size: 17px; font-weight: 800; letter-spacing: -.04em; color: var(--brand); }
 .hd-logo-txt i { font-style: normal; font-size: 10.5px; color: var(--ink-3); letter-spacing: -.02em; }

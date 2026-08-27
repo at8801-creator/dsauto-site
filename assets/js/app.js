@@ -100,10 +100,11 @@
     });
 
     if (shop.logo) {
-      var li = $('#logoImg');
-      li.src = shop.logo;
-      li.hidden = false;
-      li.addEventListener('error', function () { li.hidden = true; });
+      findImage(shop.logo, function (url) {
+        var li = $('#logoImg');
+        li.src = url;
+        li.hidden = false;
+      });
     }
     if (shop.heroImage) {
       findImage(shop.heroImage, function (url) {
