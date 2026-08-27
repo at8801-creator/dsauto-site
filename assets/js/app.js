@@ -575,11 +575,15 @@
     });
   }
 
+  // 증상의 내부 id 를 손님이 읽는 이름으로 바꾼다.
+  // (예: '기어불량' -> '기어 안 들어감', '누유' -> '오일 누유')
+  function symLabel(id) {
+    var f = ((D.symptoms || {}).symptoms || []).filter(function (x) { return x.id === id; })[0];
+    return f ? f.label : id;
+  }
+
   function symLabels() {
-    return S.syms.map(function (id) {
-      var f = (D.symptoms.symptoms || []).filter(function (x) { return x.id === id; })[0];
-      return f ? f.label : id;
-    });
+    return S.syms.map(symLabel);
   }
 
   function computeMix() {
@@ -608,7 +612,7 @@
       if (!e || !e.bands || !e.bands[type]) return;
       if (!best || e.bands[type].n > best.n) { best = e.bands[type]; bestSym = s; }
     });
-    if (best) return { b: best, src: '‘' + bestSym + '’ 증상 실사례 ' + best.n + '건' };
+    if (best) return { b: best, src: '‘' + symLabel(bestSym) + '’ 증상 실사례 ' + best.n + '건' };
     var all = D.cases.repairTypes[type];
     if (all) return { b: all, src: '전체 실사례 ' + all.n + '건' };
     return null;
@@ -937,23 +941,6 @@
     if (form && home && form.parentNode !== home) home.appendChild(form);
   }
 
-  // 자가진단에서 고른 내용을 폼에 그대로 채워 넣는다.
-  function fillLeadFromDiag() {
-    if (!S.car) return;
-    var car = $('#leadCar'), sym = $('#leadSymptom');
-    var carTxt = S.car.name + (S.spec ? ' ' + S.spec : '');
-    if (car && (!car.value || car.dataset.auto === '1')) {
-      car.value = carTxt;
-      car.dataset.auto = '1';
-    }
-    var symTxt = symLabels().join(', ') +
-      (S.gear && S.gear !== '잘 모르겠음' ? ' (' + S.gear + ')' : '');
-    if (sym && (!sym.value || sym.dataset.auto === '1')) {
-      sym.value = symTxt;
-      sym.dataset.auto = '1';
-    }
-  }
-
   function paneCase(p) {
     var picked = (D.samples || []).filter(function (s) {
       return norm(s.car) === norm(S.car.name) &&
@@ -971,7 +958,8 @@
     }
     list.forEach(function (s) {
       blk.appendChild(el('div', 'sample',
-        '<div><div class="s1">' + esc(s.car) + ' · ' + esc((s.syms || []).join(', ')) + '</div>' +
+        '<div><div class="s1">' + esc(s.car) + ' · ' +
+        esc((s.syms || []).map(symLabel).join(', ')) + '</div>' +
         '<div class="s2">' + (s.ym ? esc(s.ym) + ' · ' : '') +
         (s.km ? '약 ' + s.km + '만km · ' : '') + esc(LABEL[s.type] || s.type) + '</div></div>' +
         '<div class="r">' + won(s.price) + '원</div>'));
@@ -1010,7 +998,11 @@
     });
   }
 
-  function searchableList(p, placeholder, entries, renderRow, emptyHtml) {
+  // 목록을 임의로 자르면 손님이 '내 차는 안 하는구나' 하고 나가버린다.
+  // 성능이 버티는 선까지 올려두고, 실제로 잘릴 때만 안내한다.
+  var LIST_LIMIT = 500;
+
+  function searchableList(p, placeholder, entries, rowHtml, emptyHtml) {
     var box = el('div', 'blk');
     var lab = el('label', 'srch tbl-srch');
     lab.innerHTML = '<svg viewBox="0 0 24 24"><path d="M10 2a8 8 0 015.9 13.4l5.4 5.3-1.4 1.4-5.4-5.3A8 8 0 1110 2zm0 2a6 6 0 100 12 6 6 0 000-12z" fill="#868e9a"/></svg>' +
@@ -1020,36 +1012,44 @@
     box.appendChild(holder);
     p.appendChild(box);
 
+    // 수백 줄을 DOM 에 하나씩 붙이면 느린 휴대폰에서 화면이 몇 초씩 멈춘다.
+    // 문자열로 한 번에 조립해서 innerHTML 로 넣는다.
     function draw(q) {
-      holder.innerHTML = '';
       var nq = norm(q);
       var hits = entries.filter(function (e) { return !nq || norm(e.key).indexOf(nq) !== -1; });
       if (!hits.length) {
-        holder.appendChild(el('div', 'pane-empty',
-          emptyHtml || '검색 결과가 없습니다.'));
+        holder.innerHTML = '<div class="pane-empty">' + (emptyHtml || '검색 결과가 없습니다.') + '</div>';
         return;
       }
-      hits.slice(0, 60).forEach(function (e) { renderRow(holder, e); });
-      if (hits.length > 60) {
-        holder.appendChild(el('p', 'mnote', '검색 결과가 많습니다. 차종을 더 정확히 입력해 주세요. (' +
-          hits.length + '건 중 60건 표시)'));
+      var shown = hits.slice(0, LIST_LIMIT), html = '', i;
+      for (i = 0; i < shown.length; i++) html += rowHtml(shown[i]);
+      if (hits.length > LIST_LIMIT) {
+        html += '<p class="mnote">목록이 많아 ' + LIST_LIMIT +
+                '건까지만 표시했습니다. 차종을 검색해 주세요. (전체 ' + won(hits.length) + '건)</p>';
       }
+      holder.innerHTML = html;
     }
-    $('input', lab).addEventListener('input', function (e) { draw(e.target.value); });
+
+    // 한 글자마다 전체를 다시 그리면 입력이 밀린다.
+    var timer = null;
+    $('input', lab).addEventListener('input', function (e) {
+      var v = e.target.value;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(function () { draw(v); }, 120);
+    });
     draw('');
   }
 
   function paneAllReman(p) {
     var entries = Object.keys(D.reman).map(function (car) { return { key: car, car: car }; })
       .sort(function (a, b) { return a.car.localeCompare(b.car, 'ko'); });
-    searchableList(p, '차종 검색 (예: 그랜저, 모하비)', entries, function (holder, e) {
-      var box = el('div', 'mcat');
-      box.innerHTML = '<div class="mcat-n">' + esc(e.car) + '</div>';
+    searchableList(p, '차종 검색 (예: 그랜저, 모하비)', entries, function (e) {
+      var h = '<div class="mcat"><div class="mcat-n">' + esc(e.car) + '</div>';
       D.reman[e.car].forEach(function (x) {
-        box.appendChild(el('div', 'mrow',
-          '<span class="mn">' + esc(x.mission) + '</span><span class="mp">' + won(x.price) + '원</span>'));
+        h += '<div class="mrow"><span class="mn">' + esc(x.mission) +
+             '</span><span class="mp">' + won(x.price) + '원</span></div>';
       });
-      holder.appendChild(box);
+      return h + '</div>';
     },
     '이 차종은 재제조 미션 가격이 아직 등록되어 있지 않습니다.<br>' +
     '보유 사양이 많아 개별 안내가 필요합니다 — 카톡이나 전화로 차대번호를 알려주시면 바로 확인해 드립니다.');
@@ -1067,16 +1067,16 @@
         entries.push({ key: car + ' ' + spec, car: car, spec: spec, v: D.prices[car][spec] });
       });
     });
-    searchableList(p, '차종 검색 (예: 그랜저 HG)', entries, function (holder, e) {
-      var box = el('div', 'mcat');
-      box.innerHTML = '<div class="mcat-n">' + esc(e.car) +
-        (e.spec && e.spec !== '-' ? ' <span class="mcat-a" style="display:inline">' + esc(e.spec) + '</span>' : '') + '</div>';
+    searchableList(p, '차종 검색 (예: 그랜저 HG)', entries, function (e) {
+      var h = '<div class="mcat"><div class="mcat-n">' + esc(e.car) +
+        (e.spec && e.spec !== '-' ? ' <span class="mcat-a" style="display:inline">' + esc(e.spec) + '</span>' : '') +
+        '</div>';
       ITEMS.forEach(function (pair) {
         if (!e.v[pair[0]]) return;
-        box.appendChild(el('div', 'mrow',
-          '<span class="mn">' + esc(pair[1]) + '</span><span class="mp">' + won(e.v[pair[0]]) + '원</span>'));
+        h += '<div class="mrow"><span class="mn">' + esc(pair[1]) +
+             '</span><span class="mp">' + won(e.v[pair[0]]) + '원</span></div>';
       });
-      holder.appendChild(box);
+      return h + '</div>';
     });
   }
 
@@ -1108,7 +1108,6 @@
       ' / ' + symLabels().join(', ') + (S.gear && S.gear !== '잘 모르겠음' ? ' / ' + S.gear : '');
     fillLeadFromDiag();
     var mix = computeMix();
-    fillLeadFromDiag();
     openSheet('result', 'diag');
     track('diagnose_complete', {
       brand: S.brand, car: S.car.name, spec: S.spec || '',
@@ -1166,11 +1165,29 @@
 
   /* ------------------------------------------------------------- 폼 전송 */
 
+  // 국번 길이가 번호마다 다르므로 무조건 3-4-4 로 자르면 안 된다.
+  //   02        : 서울           (02-1234-5678)
+  //   050X      : 안심번호       (0507-1234-5678)
+  //   15/16/18XX: 대표번호       (1588-1234)
+  //   그 외     : 3자리 국번     (031-921-8801 / 010-1234-5678)
   function fmtPhone(v) {
-    var d = v.replace(/[^0-9]/g, '').slice(0, 11);
-    if (d.length < 4) return d;
-    if (d.length < 8) return d.slice(0, 3) + '-' + d.slice(3);
-    return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
+    var d = v.replace(/[^0-9]/g, '').slice(0, 12);
+    if (!d) return '';
+
+    // 뒤 4자리를 떼어내고 나머지를 국번으로 둔다.
+    function cut(head) {
+      var a = d.slice(0, head), rest = d.slice(head);
+      if (!rest) return a;
+      if (rest.length < 7) return a + '-' + rest;      // 입력 중에는 덜 쪼갠다
+      return a + '-' + rest.slice(0, rest.length - 4) + '-' + rest.slice(rest.length - 4);
+    }
+
+    if (/^1[5678]/.test(d)) {                          // 대표번호 (8자리)
+      return d.length <= 4 ? d : d.slice(0, 4) + '-' + d.slice(4, 8);
+    }
+    if (d.indexOf('02') === 0) return cut(2);          // 서울
+    if (/^050\d/.test(d)) return cut(4);               // 안심번호
+    return cut(3);                                     // 010 · 031 · 070 등
   }
 
   function leadMessage(f) {
@@ -1250,22 +1267,24 @@
 
     track('lead_submit', { brand: S.brand, car: f.car, symptoms: f.symptom, method: mode });
 
-    // 시트 주소가 있으면 그걸로 접수를 끝낸다. (엑셀로 내려받을 수 있는 유일한 경로)
-    // 주소가 없을 때만 문자·카톡으로 넘겨서 접수가 아예 유실되지 않게 한다.
+    // 시트 주소가 있으면 그걸로 접수한다. (엑셀로 내려받을 수 있는 유일한 경로)
+    // 전송이 실패하면 성공한 척하지 않고 문자·카톡으로 넘겨서 접수를 잃지 않게 한다.
     if (lead.sheetUrl) {
-      fetch(lead.sheetUrl, {
-        method: 'POST', mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          name: f.name, phone: f.phone, plate: f.plate, car: f.car, symptom: f.symptom,
-          brand: S.brand || '', pickedCar: S.car ? S.car.name : '', spec: S.spec || '',
-          situations: situLabels().join(', '), symptoms: symLabels().join(', '),
-          gear: S.gear || '',
-          page: location.href, ref: document.referrer, ts: new Date().toISOString()
-        })
-      }).catch(function () { });
-      ok(msg, '접수되었습니다. 확인 후 곧 연락드리겠습니다.');
-      markSubmitted();
+      var btn = $('#gtm-lead-submit');
+      var btnTxt = btn ? btn.textContent : '';
+      if (btn) { btn.disabled = true; btn.textContent = '보내는 중...'; }
+      msg.className = 'lead-msg wait';
+      msg.textContent = '접수 중입니다. 잠시만 기다려 주세요...';
+
+      sendToSheet(lead.sheetUrl, f).then(function () {
+        ok(msg, '접수되었습니다. 확인 후 곧 연락드리겠습니다.');
+        markSubmitted();
+      }, function (err) {
+        if (btn) { btn.disabled = false; btn.textContent = btnTxt || '상담 요청 보내기'; }
+        if (window.console) console.warn('[대성오토] 시트 접수 실패, 문자·카톡으로 전환합니다', err);
+        track('lead_sheet_fail', {});
+        handoff(msg, text, dial, mode, true);
+      });
       return;
     }
     if (mode === 'sheet') {          // 시트를 쓰겠다고 해놓고 주소가 없는 경우
@@ -1273,22 +1292,60 @@
       msg.textContent = '접수 설정이 아직 되어 있지 않습니다. 전화로 문의해 주세요.';
       return;
     }
-    if (mode === 'sms' && dial) {
+    handoff(msg, text, dial, mode, false);
+  }
+
+  // 상담 내용을 구글 시트로 보낸다. 네트워크가 실패하거나 응답이 없으면 reject 한다.
+  // no-cors 라 서버가 돌려준 내용은 읽을 수 없지만, 전송 자체의 실패는 여기서 잡힌다.
+  function sendToSheet(url, f) {
+    if (!window.fetch) return Promise.reject(new Error('이 브라우저는 fetch 를 지원하지 않습니다'));
+    var opts = {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        name: f.name, phone: f.phone, plate: f.plate, car: f.car, symptom: f.symptom,
+        brand: S.brand || '', pickedCar: S.car ? S.car.name : '', spec: S.spec || '',
+        situations: situLabels().join(', '), symptoms: symLabels().join(', '),
+        gear: S.gear || '',
+        page: location.href, ref: document.referrer, ts: new Date().toISOString()
+      })
+    };
+    var ctl = null, timer = null;
+    try { ctl = new AbortController(); opts.signal = ctl.signal; } catch (e) { /* 구형 브라우저 */ }
+    var p = fetch(url, opts);
+    if (ctl) timer = setTimeout(function () { try { ctl.abort(); } catch (e) { } }, 12000);
+    return p.then(
+      function (r) { if (timer) clearTimeout(timer); return r; },
+      function (e) { if (timer) clearTimeout(timer); throw e; }
+    );
+  }
+
+  // 문자 · 카카오톡 · 전화 순으로 접수를 넘긴다.
+  // fallback=true 는 시트 접수가 실패해서 대신 넘어온 경우다.
+  function handoff(msg, text, dial, mode, fallback) {
+    var m = (mode === 'sms' || mode === 'kakao') ? mode : (isMobile() ? 'sms' : 'kakao');
+    if (m === 'sms' && dial) {
       var sep = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? '&' : '?';
       location.href = 'sms:' + dial + sep + 'body=' + encodeURIComponent(text);
-      ok(msg, '문자 앱이 열립니다. 전송 버튼만 눌러주세요.');
+      ok(msg, fallback
+        ? '연결이 불안정해 문자로 보내드립니다. 전송 버튼만 눌러주세요.'
+        : '문자 앱이 열립니다. 전송 버튼만 눌러주세요.');
       return;
     }
     var kakao = (CFG.links || {}).kakaoChat;
     if (kakao) {
       copy(text);
       window.open(kakao, '_blank', 'noopener');
-      ok(msg, '카카오톡 상담창이 열렸습니다. 내용이 복사되어 있으니 붙여넣기만 하시면 됩니다.');
+      ok(msg, fallback
+        ? '연결이 불안정해 카카오톡으로 연결했습니다. 내용이 복사되어 있으니 붙여넣기만 하시면 됩니다.'
+        : '카카오톡 상담창이 열렸습니다. 내용이 복사되어 있으니 붙여넣기만 하시면 됩니다.');
       return;
     }
     if (dial) { location.href = 'tel:' + dial; return; }
     msg.className = 'lead-msg err';
-    msg.textContent = '상담 연결 설정이 아직 되어 있지 않습니다. 전화로 문의해 주세요.';
+    msg.textContent = fallback
+      ? '접수에 실패했습니다. 죄송하지만 ' + (((CFG.shop || {}).phoneLabel) || '전화') + ' 로 연락 주세요.'
+      : '상담 연결 설정이 아직 되어 있지 않습니다. 전화로 문의해 주세요.';
   }
 
   function ok(msg, text) { msg.className = 'lead-msg ok'; msg.textContent = text; }
