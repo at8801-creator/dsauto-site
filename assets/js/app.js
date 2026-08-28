@@ -685,7 +685,9 @@
     후진불량: '후진이 안 되면 주차할 때마다 곤란하셨을 겁니다.',
     주행불가: '차가 움직이지 않는 상황이면 우선 견인 상담부터 도와드립니다.'
   };
-  var MIN_CAR_N = 8;   // 표본이 적으면 구간이 우연히 좁아져 실제보다 싸 보인다.
+  // 그 차종 실사례가 이만큼 쌓여야 금액 구간을 보여준다.
+  // 미달이면 남의 차 평균으로 때우지 않고 '점검 후 안내' 로 넘긴다.
+  var MIN_CAR_N = 20;
 
   function situLabels() {
     return S.situ.map(function (id) {
@@ -720,20 +722,14 @@
       .sort(function (a, b) { return b.ratio - a.ratio; });
   }
 
+  // 오직 '그 차종의 실제 청구 내역' 만 쓴다.
+  // 예전에는 사례가 모자라면 증상 전체 평균으로 대체했는데, 그 표본이
+  // 대부분 국산차라 수입차에 국산 금액이 그대로 찍히는 문제가 있었다.
   function pickBand(type) {
     var byCar = D.cases.byCar[S.car.name];
     if (byCar && byCar[type] && byCar[type].n >= MIN_CAR_N) {
       return { b: byCar[type], src: S.car.name + ' 실사례 ' + byCar[type].n + '건' };
     }
-    var best = null, bestSym = null;
-    S.syms.forEach(function (s) {
-      var e = D.cases.bySymptom[s];
-      if (!e || !e.bands || !e.bands[type]) return;
-      if (!best || e.bands[type].n > best.n) { best = e.bands[type]; bestSym = s; }
-    });
-    if (best) return { b: best, src: '‘' + symLabel(bestSym) + '’ 증상 실사례 ' + best.n + '건' };
-    var all = D.cases.repairTypes[type];
-    if (all) return { b: all, src: '전체 실사례 ' + all.n + '건' };
     return null;
   }
 
@@ -950,6 +946,30 @@
       : ['미션오일교환', '밸브바디정비', '재제조미션교환'];
     var maxP75 = 1;
     order.forEach(function (t) { var r = pickBand(t); if (r) maxP75 = Math.max(maxP75, r.b.p75); });
+
+    // 이 차종 실사례가 모자라면 금액을 지어내지 않는다.
+    var usable = order.filter(function (t) { return pickBand(t); });
+    if (!usable.length) {
+      var none = el('div', 'blk');
+      none.innerHTML =
+        '<p class="blk-h">이 차종은 아직 사례가 충분하지 않습니다</p>' +
+        '<p class="blk-s">사양에 따라 차이가 커서 금액을 말씀드리기 어렵습니다. ' +
+        '정밀 점검 후 정확히 알려드립니다.</p>';
+      var url = ((CFG.links || {}).naverReserve) || '';
+      if (url) {
+        var a = el('a', 'btn cta naver gtm-cta');
+        a.href = url; a.target = '_blank'; a.rel = 'noopener';
+        a.textContent = '점검 예약하기';
+        a.setAttribute('data-gtm-event', 'naver_reserve_click');
+        a.setAttribute('data-gtm-location', 'cost-nodata');
+        none.appendChild(a);
+      }
+      p.appendChild(none);
+      p.appendChild(el('p', 'disclaimer',
+        '차종별로 실제 청구된 내역이 쌓인 경우에만 금액대를 보여드립니다. ' +
+        '근거 없는 추정 금액은 안내하지 않습니다.'));
+      return;
+    }
 
     var head = el('div', 'blk');
     head.innerHTML = '<p class="blk-h">수리 방법별 실제 청구액</p>' +
