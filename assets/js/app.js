@@ -273,31 +273,150 @@
       ['영업시간', shop.hours], ['휴무', shop.closed],
       ['주차', shop.parking], ['대중교통', shop.transit]
     ]);
-    if (shop.mapImage) {
-      var wrap = $('.map-wrap');
-      findImage(shop.mapImage, function (url) {
-        var img = new Image();
-        img.src = url;
-        var box = el('a', 'map-img');
-        box.href = links.naverPlace || '#';
-        if (links.naverPlace) { box.target = '_blank'; box.rel = 'noopener'; }
-        box.className = 'map-img gtm-cta cta-place';
-        box.setAttribute('data-gtm-event', 'naver_place_click');
-        box.setAttribute('data-gtm-location', 'map_image');
-        box.appendChild(img);
-        img.alt = (shop.name || '') + ' 약도';
-        wrap.insertBefore(box, wrap.firstChild);
-        box.addEventListener('click', function () {
-          track('naver_place_click', { location: 'map_image' });
-        });
-      });
-    }
+    // 네이버 지도를 쓸 수 있으면 지도, 아니면 약도 그림.
+    if ((CFG.map || {}).naverClientId) setupNaverMap(); else showMapImage();
+
     if (links.naverPlace) {
       var b = $('#gtm-place');
       b.href = links.naverPlace; b.target = '_blank'; b.rel = 'noopener'; b.hidden = false;
     }
     // 주소도 링크도 없으면 섹션 자체를 감춘다
     if (!addr && !links.naverPlace && !shop.phoneLabel) $('#map').hidden = true;
+  }
+
+  /* ---------- 오시는 길 지도 ----------
+     네이버 지도는 화면에 들어올 때만 불러온다.
+     첫 화면 속도에 영향을 주지 않고, 지도 API 호출수(요금)도 아낀다.
+     인증 실패·네트워크 오류 등 어떤 이유로든 못 띄우면 약도 그림으로 되돌아간다. */
+
+  var mapDone = false;   // 지도든 그림이든 한 번만 그린다
+
+  // 지도를 못 쓰게 됐을 때 약도 그림으로 되돌린다.
+  // 네이버는 지도를 만든 '뒤에' 인증 실패를 알려주는 경우가 있어서,
+  // 로딩 성공 여부와 무관하게 언제든 불릴 수 있어야 한다.
+  function mapFallback(why) {
+    if (why && window.console) console.warn('[대성오토] ' + why);
+    var box = document.getElementById('naverMap');
+    if (box && box.parentNode) box.parentNode.removeChild(box);
+    mapDone = false;
+    showMapImage();
+  }
+
+  // 네이버가 인증 실패 시 부르는 전역 함수. 미리 걸어둔다.
+  window.navermap_authFailure = function () {
+    mapFallback('네이버 지도 인증 실패 — Application 에 등록한 웹 서비스 URL 을 확인하세요');
+  };
+
+  // 약도 그림을 넣는다 (지도를 못 쓸 때의 대비책)
+  function showMapImage() {
+    if (mapDone) return;
+    var shop = CFG.shop || {}, links = CFG.links || {};
+    if (!shop.mapImage) { mapDone = true; return; }
+    var wrap = $('.map-wrap');
+    if (!wrap) return;
+    findImage(shop.mapImage, function (url) {
+      if (mapDone) return;
+      mapDone = true;
+      var img = new Image();
+      img.src = url;
+      img.alt = (shop.name || '') + ' 약도';
+      var box = el('a', 'map-img gtm-cta cta-place');
+      box.href = links.naverPlace || '#';
+      if (links.naverPlace) { box.target = '_blank'; box.rel = 'noopener'; }
+      box.setAttribute('data-gtm-event', 'naver_place_click');
+      box.setAttribute('data-gtm-location', 'map_image');
+      box.appendChild(img);
+      wrap.insertBefore(box, wrap.firstChild);
+      box.addEventListener('click', function () {
+        track('naver_place_click', { location: 'map_image' });
+      });
+    });
+  }
+
+  function setupNaverMap() {
+    var wrap = $('.map-wrap');
+    if (!wrap) return;
+
+    var box = el('div', 'map-live');
+    box.id = 'naverMap';
+    box.setAttribute('role', 'img');
+    box.setAttribute('aria-label', ((CFG.shop || {}).name || '') + ' 위치 지도');
+    wrap.insertBefore(box, wrap.firstChild);
+
+    var started = false;
+    function begin() {
+      if (started) return;
+      started = true;
+      loadNaverMaps(drawNaverMap, function (why) { mapFallback(why); });
+    }
+
+    // 지도 근처까지 스크롤했을 때 불러온다
+    if (window.IntersectionObserver) {
+      var io = new IntersectionObserver(function (es) {
+        if (es.some(function (e) { return e.isIntersecting; })) { io.disconnect(); begin(); }
+      }, { rootMargin: '400px' });
+      io.observe(box);
+    } else {
+      begin();
+    }
+  }
+
+  function loadNaverMaps(onOk, onFail) {
+    if (window.naver && window.naver.maps) { onOk(); return; }
+    var id = (CFG.map || {}).naverClientId;
+    var settled = false;
+    function fail(why) { if (!settled) { settled = true; onFail(why); } }
+
+    var sc = document.createElement('script');
+    sc.async = true;
+    sc.src = 'https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=' + encodeURIComponent(id);
+    sc.onload = function () {
+      if (settled) return;
+      if (window.naver && window.naver.maps) { settled = true; onOk(); }
+      else fail('네이버 지도 스크립트를 읽었지만 지도 기능이 없습니다');
+    };
+    sc.onerror = function () { fail('네이버 지도 스크립트를 불러오지 못했습니다'); };
+    document.head.appendChild(sc);
+    setTimeout(function () { fail('네이버 지도 응답이 없습니다'); }, 8000);
+  }
+
+  function drawNaverMap() {
+    var m = CFG.map || {}, shop = CFG.shop || {}, links = CFG.links || {};
+    var box = $('#naverMap');
+    if (!box || !window.naver || !naver.maps) return;
+    mapDone = true;
+    try {
+      var pos = new naver.maps.LatLng(m.lat, m.lng);
+      var map = new naver.maps.Map(box, {
+        center: pos,
+        zoom: m.zoom || 17,
+        logoControl: true,
+        mapDataControl: false,
+        scaleControl: false,
+        zoomControl: true,
+        zoomControlOptions: { position: naver.maps.Position.TOP_RIGHT }
+      });
+      var marker = new naver.maps.Marker({ position: pos, map: map, title: shop.name || '' });
+
+      // 말풍선을 눌러도, 마커를 눌러도 네이버 플레이스로 간다
+      var html = '<div style="padding:9px 12px;font-size:13px;font-weight:700;white-space:nowrap;' +
+                 'font-family:inherit;line-height:1.4">' + esc(shop.name || '') +
+                 '<div style="font-weight:400;color:#4d5560;font-size:11.5px;margin-top:2px">' +
+                 esc(shop.address || '') + '</div></div>';
+      var info = new naver.maps.InfoWindow({ content: html, borderColor: '#e4e7ec', disableAnchor: false });
+      info.open(map, marker);
+
+      if (links.naverPlace) {
+        naver.maps.Event.addListener(marker, 'click', function () {
+          track('naver_place_click', { location: 'map_marker' });
+          window.open(links.naverPlace, '_blank', 'noopener');
+        });
+      }
+      track('map_view', { kind: 'naver' });
+    } catch (e) {
+      if (window.console) console.warn('[대성오토] 지도 그리기 실패', e);
+      mapFallback(null);
+    }
   }
 
   // 검색엔진에 업체 정보를 알려주는 구조화 데이터.

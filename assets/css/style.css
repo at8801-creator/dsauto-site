@@ -650,6 +650,14 @@ a { color: inherit; }
 }
 .map-img img { display: block; width: 100%; height: auto; }
 
+/* 네이버 지도. 그림 약도와 같은 자리·같은 모양으로 들어간다.
+   지도를 못 불러오면 자바스크립트가 이 요소를 지우고 약도 그림을 넣는다. */
+.map-live {
+  height: 340px; margin-bottom: 16px; border-radius: var(--r);
+  overflow: hidden; border: 1px solid var(--line); background: var(--bg-2);
+}
+@media (max-width: 700px) { .map-live { height: 260px; } }
+
 .btn.cta.ask { background: var(--navy); color: #fff; }
 .sheet-bd .lead { margin-top: 0; padding-top: 14px; }
 
