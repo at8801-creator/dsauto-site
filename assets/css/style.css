@@ -46,8 +46,10 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
-               'Malgun Gothic', 'Noto Sans KR', system-ui, sans-serif;
+  /* 본고딕(Noto Sans KR). index.html 에서 구글 폰트로 불러온다.
+     불러오기 전이거나 실패하면 아래 순서대로 시스템 글꼴을 쓴다. */
+  font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
+               'Malgun Gothic', system-ui, sans-serif;
   font-size: 16px; line-height: 1.6; letter-spacing: -.012em;
   word-break: keep-all; overflow-wrap: break-word;
 }
