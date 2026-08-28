@@ -16,7 +16,7 @@ window.SITE_CONFIG = {
     phoneDial: '0319218801',                         // ★ 전화 걸기용 번호 (숫자만, 예: 0212345678)
     address: '경기도 고양시 일산동구 성석로 212-9',   // ★ 주소
     logo: 'assets/img/logo.png',            //   헤더 로고. assets/img 에 logo.png(jpg·webp도 됨)만 넣으면 나옵니다
-    heroImage: 'assets/img/hero.jpg',       //   첫 화면 배경. assets/img 에 hero.jpg(png·webp도 됨)만 넣으면 자동으로 잡힙니다
+    heroImage: 'assets/img/배경1.jpg',       //   첫 화면 배경 사진 (배경2.jpg 로 바꿔도 됩니다)
     mapImage: 'assets/img/약도.png',        //   오시는 길 약도 이미지 (png·jpg 모두 됩니다)
 
     /* 아래는 '회사소개'와 '오시는 길'에 그대로 나옵니다.

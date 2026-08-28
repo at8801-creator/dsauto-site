@@ -155,11 +155,18 @@ a { color: inherit; }
   background: linear-gradient(115deg, #16273f 0%, #1f3557 52%, #2b4670 100%);
   background-size: cover; background-position: center;
 }
+/* 사진 위에 글자가 얹히므로 어둡게 덮는다.
+   모바일은 글자가 위쪽에 세로로 쌓이니 위아래 방향으로,
+   데스크톱은 글자가 왼쪽·진단카드가 오른쪽이라 좌우 방향으로 덮는다. */
 .hero-bg.has-img::after {
   content: ''; position: absolute; inset: 0;
-  background: linear-gradient(100deg, rgba(12,20,33,.94) 0%, rgba(12,20,33,.74) 48%, rgba(12,20,33,.5) 100%);
+  background: linear-gradient(180deg,
+    rgba(10,17,29,.84) 0%, rgba(10,17,29,.58) 42%, rgba(10,17,29,.80) 100%);
 }
-.hero-bg.has-img { background-size: cover; background-position: center; }
+.hero-bg.has-img {
+  background-size: cover;
+  background-position: 50% 40%;    /* 간판과 정비 베이가 걸리는 위치 */
+}
 
 .hero-in {
   position: relative; max-width: 1140px; margin: 0 auto; padding: 34px 20px 40px;
@@ -579,6 +586,11 @@ a { color: inherit; }
   .hd-burger { display: none; }
   .hd-mobile { display: none !important; }
   .hero-in { grid-template-columns: 1fr 452px; align-items: center; gap: 44px; }
+  .hero-bg.has-img { background-position: 58% 46%; }
+  .hero-bg.has-img::after {
+    background: linear-gradient(100deg,
+      rgba(10,17,29,.86) 0%, rgba(10,17,29,.68) 44%, rgba(10,17,29,.32) 100%);
+  }
   .gal-item { flex: 0 0 33.3333%; }
 }
 
