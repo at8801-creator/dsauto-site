@@ -644,6 +644,13 @@
     return null;
   }
 
+  // 같은 차종·사양인데 품번에 따라 금액이 다르면 구간으로 보여준다
+  function remanPrice(x) {
+    return x.priceMax && x.priceMax !== x.price
+      ? won(x.price) + ' ~ ' + won(x.priceMax) + '원'
+      : won(x.price) + '원';
+  }
+
   function remanFor(carName) {
     var target = norm(carName);
     var keys = Object.keys(D.reman), i;
@@ -865,7 +872,7 @@
       blk.innerHTML = '<p class="blk-h">이 차량 재제조 미션 가격</p>';
       rm.forEach(function (x) {
         blk.appendChild(el('div', 'mrow',
-          '<span class="mn">' + esc(x.mission) + '</span><span class="mp">' + won(x.price) + '원</span>'));
+          '<span class="mn">' + esc(x.mission) + '</span><span class="mp">' + remanPrice(x) + '</span>'));
       });
       blk.appendChild(el('p', 'mnote',
         '재제조 미션은 사양에 따라 가격이 다릅니다. 차대번호를 알려주시면 정확한 사양으로 안내드립니다.'));
@@ -1047,7 +1054,7 @@
       var h = '<div class="mcat"><div class="mcat-n">' + esc(e.car) + '</div>';
       D.reman[e.car].forEach(function (x) {
         h += '<div class="mrow"><span class="mn">' + esc(x.mission) +
-             '</span><span class="mp">' + won(x.price) + '원</span></div>';
+             '</span><span class="mp">' + remanPrice(x) + '</span></div>';
       });
       return h + '</div>';
     },
