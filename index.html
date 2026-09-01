@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>대성오토 주식회사</title>
-<meta name="description" content="차종과 증상을 고르면 실제 수리 사례를 바탕으로 예상 원인과 비용 구간을 알려드립니다. 자동변속기 재제조 전문 대성오토.">
+<meta name="description" content="차종과 증상을 고르면 예상 원인과 정해진 정찰 가격을 바로 확인할 수 있습니다. 자동변속기 재제조 전문 대성오토.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="대성오토 주식회사">
-<meta property="og:description" content="차종과 증상만 고르면 예상 원인과 실제 수리비 구간을 바로 확인할 수 있습니다.">
+<meta property="og:description" content="차종과 증상만 고르면 예상 원인과 정찰 가격을 바로 확인할 수 있습니다.">
 <meta property="og:url" content="https://dsauto.me/">
 <meta property="og:site_name" content="대성오토 주식회사">
 <meta property="og:locale" content="ko_KR">
@@ -19,6 +19,10 @@
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="apple-touch-icon" href="assets/img/아이콘.png">
 <meta property="og:image" content="https://dsauto.me/assets/img/아이콘.png">
+<!-- 첫 화면 배경은 이 페이지에서 가장 큰 그림이라, 브라우저가 가장 먼저 받아야 한다.
+     자바스크립트가 넣기를 기다리면 1초 이상 늦어지므로 여기서 미리 시킨다.
+     ★ config.js 의 shop.heroImage 를 바꾸면 아래 주소도 같이 바꿔주세요. -->
+<link rel="preload" as="image" href="assets/img/배경1.jpg" fetchpriority="high">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- 본고딕. 화면 표시를 막지 않도록 print 로 받은 뒤 적용한다.
@@ -26,7 +30,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800&display=swap"
       media="print" onload="this.media='all';this.onload=null">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800&display=swap"></noscript>
-<link rel="stylesheet" href="assets/css/style.css?v=1787893520">
+<link rel="stylesheet" href="assets/css/style.css?v=1788246184">
 </head>
 <body>
 
@@ -48,25 +52,35 @@
         <button type="button" class="nav-t">회사소개</button>
         <div class="nav-d">
           <a href="#about">회사소개</a>
-          <a href="#proc">작업 과정</a>
+          <a href="#trust">숫자로 보는 정비 이력</a>
           <a href="#map">오시는 길</a>
         </div>
       </div>
       <div class="nav-i">
-        <button type="button" class="nav-t">견적확인</button>
+        <button type="button" class="nav-t">수리비 확인</button>
         <div class="nav-d">
+          <a class="nav-lead" href="#" data-open-sheet="quote">내 차 수리비 확인</a>
           <a href="#diag" data-nav-start>증상으로 자가진단</a>
-          <a href="#" data-open-sheet="price" data-tab="oil">미션오일</a>
-          <a href="#" data-open-sheet="price" data-tab="reman">재제조 미션</a>
-          <a href="#" data-open-sheet="price" data-tab="maint">경정비</a>
-          <a href="#" data-open-sheet="price" data-tab="diff">디퍼런셜 · 트랜스퍼</a>
+          <p class="nav-sep">전체 가격표</p>
+          <a class="nav-sub" href="#" data-open-sheet="price" data-tab="oil">미션오일</a>
+          <a class="nav-sub" href="#" data-open-sheet="price" data-tab="reman">재제조 미션</a>
+          <a class="nav-sub" href="#" data-open-sheet="price" data-tab="maint">경정비</a>
+          <a class="nav-sub" href="#" data-open-sheet="price" data-tab="diff">디퍼런셜 · 트랜스퍼</a>
+        </div>
+      </div>
+      <div class="nav-i">
+        <button type="button" class="nav-t">수리 서비스</button>
+        <div class="nav-d">
+          <a href="#service">수리 방법 4단계</a>
+          <a href="#proc">작업 과정</a>
+          <a href="#warranty">보증 · A/S</a>
         </div>
       </div>
       <div class="nav-i">
         <button type="button" class="nav-t">고객지원</button>
         <div class="nav-d">
-          <a href="#warranty">보증 · A/S</a>
           <a href="#offer">무상 점검 예약</a>
+          <a href="#warranty">보증 · A/S</a>
           <a href="#map">전화 · 카톡 문의</a>
         </div>
       </div>
@@ -85,15 +99,19 @@
   </div>
 
   <div class="hd-mobile" id="hdMobile" hidden>
+    <a class="lead" href="#" data-open-sheet="quote">내 차 수리비 확인</a>
     <a href="#diag" data-nav-start>증상으로 자가진단</a>
-    <a href="#" data-open-sheet="price" data-tab="oil">미션오일 가격표</a>
-    <a href="#" data-open-sheet="price" data-tab="reman">재제조 미션 가격</a>
-    <a href="#" data-open-sheet="price" data-tab="maint">경정비 가격표</a>
+    <a href="#service">수리 방법 4단계</a>
     <a href="#proc">작업 과정</a>
     <a href="#warranty">보증 · A/S</a>
     <a href="#about">회사소개</a>
     <a href="#map">오시는 길</a>
     <a href="#offer">무상 점검 예약</a>
+    <p class="hd-mobile-sep">전체 가격표</p>
+    <a class="sub" href="#" data-open-sheet="price" data-tab="oil">미션오일</a>
+    <a class="sub" href="#" data-open-sheet="price" data-tab="reman">재제조 미션</a>
+    <a class="sub" href="#" data-open-sheet="price" data-tab="maint">경정비</a>
+    <a class="sub" href="#" data-open-sheet="price" data-tab="diff">디퍼런셜 · 트랜스퍼</a>
   </div>
 </header>
 
@@ -132,7 +150,9 @@
             <input type="search" id="carSearch" placeholder="차종 검색 (예: 그랜저, 모하비)"
                    autocomplete="off" enterkeyhint="search">
           </label>
-          <div class="brand-strip" id="brandGrid"></div>
+          <div class="brand-wrap" id="brandWrap">
+            <div class="brand-strip" id="brandGrid"></div>
+          </div>
           <div class="car-list" id="carList" role="listbox" aria-label="차종 목록"></div>
           <div class="spec-pick" id="specPick" hidden>
             <p class="step-lbl">세부 사양 <span class="opt">선택</span></p>
@@ -160,8 +180,12 @@
       </div>
 
       <div class="panel-ft">
-        <button type="button" class="btn ghost" id="btnPrev" hidden>이전</button>
-        <button type="button" class="btn primary" id="btnNext" disabled>다음</button>
+        <!-- 버튼이 회색일 때 왜 못 누르는지 알려준다. 회색 버튼만 보이면 고장으로 오해한다. -->
+        <p class="panel-hint" id="stepHint" role="status"></p>
+        <div class="panel-btns">
+          <button type="button" class="btn ghost" id="btnPrev" hidden>이전</button>
+          <button type="button" class="btn primary" id="btnNext" disabled>다음</button>
+        </div>
       </div>
     </div>
   </div>
@@ -170,32 +194,36 @@
 <!-- ══════════════════════════ 타일 ══════════════════════════ -->
 <section class="tiles-sec">
   <div class="wrap">
-    <div class="tiles">
-      <button type="button" class="tile" data-open-sheet="price" data-tab="oil">
-        <span class="tile-ico">
-          <svg viewBox="0 0 24 24"><path d="M5 4h9l5 5v11H5z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.6" fill="none"/></svg>
-        </span>
-        <span class="tile-t">미션오일 가격</span>
-        <span class="tile-s">타입별 정찰 가격표</span>
-        <span class="tile-more">+</span>
-      </button>
-      <button type="button" class="tile" data-open-sheet="price" data-tab="reman">
-        <span class="tile-ico">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 4.5v3M12 16.5v3M4.5 12h3M16.5 12h3" stroke="currentColor" stroke-width="1.6"/></svg>
-        </span>
-        <span class="tile-t">재제조 미션</span>
-        <span class="tile-s">차종별 미션 가격</span>
-        <span class="tile-more">+</span>
-      </button>
-      <button type="button" class="tile" data-open-sheet="price" data-tab="maint">
-        <span class="tile-ico">
-          <svg viewBox="0 0 24 24"><path d="M4 16l6-6 4 4 6-6" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="10" cy="10" r="1.6" fill="currentColor"/></svg>
-        </span>
-        <span class="tile-t">경정비</span>
-        <span class="tile-s">엔진오일 · 브레이크</span>
-        <span class="tile-more">+</span>
-      </button>
+    <!-- 손님이 가장 먼저 만나야 하는 길은 '내 차 하나'다.
+         전 차종 표는 지우지 않되 아래 줄로 내려 위계를 낮춘다. -->
+    <button type="button" class="quote-cta" data-open-sheet="quote">
+      <span class="quote-cta-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M15.8 15.8L20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </span>
+      <span class="quote-cta-txt">
+        <span class="quote-cta-t">내 차 수리비 찾기</span>
+        <span class="quote-cta-s">차종만 고르시면 그 차의 정찰 가격만 모아서 보여드립니다</span>
+      </span>
+      <span class="quote-cta-go" aria-hidden="true">→</span>
+    </button>
+    <div class="tiles-sub">
+      <span class="tiles-sub-l">전체 가격표</span>
+      <a href="#" data-open-sheet="price" data-tab="oil">미션오일</a>
+      <a href="#" data-open-sheet="price" data-tab="reman">재제조 미션</a>
+      <a href="#" data-open-sheet="price" data-tab="maint">경정비</a>
+      <a href="#" data-open-sheet="price" data-tab="diff">디퍼런셜 · 트랜스퍼</a>
     </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════ 수리 서비스 ══════════════════════════ -->
+<section class="sec" id="service">
+  <div class="wrap">
+    <p class="sec-k">REPAIR OPTIONS</p>
+    <h2 class="sec-h" data-service-title></h2>
+    <p class="sec-s" data-service-sub></p>
+    <ol class="ladder" id="ladder"></ol>
+    <p class="sec-note" data-service-note></p>
   </div>
 </section>
 
@@ -265,38 +293,64 @@
         <h2 class="offer-h" data-benefit-title></h2>
         <ul class="offer-list" data-benefit-items></ul>
         <p class="offer-note" data-benefit-note></p>
-      </div>
-      <div class="offer-r">
         <div class="cta-col">
           <a class="btn cta naver gtm-cta cta-naver" id="gtm-naver-reserve"
              data-gtm-event="naver_reserve_click" data-gtm-location="offer" href="#" hidden>
             네이버로 무상 점검 예약
           </a>
         </div>
+      </div>
+      <div class="offer-r">
         <div id="leadHome">
         <form class="lead" id="leadForm" novalidate>
-          <p class="lead-h">번호만 남겨주세요. 확인 후 연락드립니다.</p>
+          <p class="lead-h">아래 내용을 모두 남겨주시면 확인 후 연락드립니다.</p>
           <div class="lead-row">
-            <input type="text" id="leadName" placeholder="성함" autocomplete="name" maxlength="20" required>
-            <input type="tel" id="leadPhone" placeholder="연락처" autocomplete="tel"
-                   inputmode="numeric" maxlength="14" required>
+            <div class="lead-f">
+              <label class="lead-lbl" for="leadName">성함</label>
+              <input type="text" id="leadName" placeholder="홍길동" autocomplete="name"
+                     maxlength="20" required aria-describedby="errName">
+              <p class="lead-err" id="errName"></p>
+            </div>
+            <div class="lead-f">
+              <label class="lead-lbl" for="leadPhone">연락처</label>
+              <input type="tel" id="leadPhone" placeholder="010-1234-5678" autocomplete="tel"
+                     inputmode="numeric" maxlength="14" required aria-describedby="errPhone">
+              <p class="lead-err" id="errPhone"></p>
+            </div>
           </div>
           <div class="lead-row one">
-            <input type="text" id="leadPlate" placeholder="차량번호 (수입차는 차대번호)"
-                   autocomplete="off" maxlength="30" required>
+            <div class="lead-f">
+              <label class="lead-lbl" for="leadPlate">차량번호 <span class="lead-opt">· 수입차는 차대번호</span></label>
+              <input type="text" id="leadPlate" placeholder="12가 3456"
+                     autocomplete="off" maxlength="30" required aria-describedby="errPlate">
+              <p class="lead-err" id="errPlate"></p>
+            </div>
           </div>
           <div class="lead-row one">
-            <input type="text" id="leadCar" placeholder="차종 (예: 제네시스 DH 3.3)"
-                   autocomplete="off" maxlength="40" required>
+            <div class="lead-f">
+              <label class="lead-lbl" for="leadCar">차종</label>
+              <input type="text" id="leadCar" placeholder="제네시스 DH 3.3"
+                     autocomplete="off" maxlength="40" required aria-describedby="errCar">
+              <p class="lead-err" id="errCar"></p>
+            </div>
           </div>
           <div class="lead-row one">
-            <textarea id="leadSymptom" rows="3" maxlength="300"
-                      placeholder="차량 증상 (예: 2~3단 변속충격, 출발할 때 울컥거림)" required></textarea>
+            <div class="lead-f">
+              <label class="lead-lbl" for="leadSymptom">차량 증상</label>
+              <textarea id="leadSymptom" rows="3" maxlength="300"
+                        placeholder="2~3단 변속충격, 출발할 때 울컥거림"
+                        required aria-describedby="errSymptom"></textarea>
+              <p class="lead-err" id="errSymptom"></p>
+            </div>
           </div>
           <p class="lead-ctx" id="leadCtx"></p>
+          <div class="lead-agree">
+            <input type="checkbox" id="leadAgree" required aria-describedby="errAgree">
+            <label for="leadAgree"><span data-lead-privacy></span> 위 내용에 동의합니다.</label>
+          </div>
+          <p class="lead-err" id="errAgree"></p>
           <button type="submit" class="btn cta submit gtm-cta cta-lead" id="gtm-lead-submit"
                   data-gtm-event="lead_submit" data-gtm-location="offer">상담 요청 보내기</button>
-          <p class="lead-privacy" data-lead-privacy></p>
           <p class="lead-msg" id="leadMsg" role="status"></p>
         </form>
         </div>
@@ -335,7 +389,7 @@
     <p class="ft-line" data-shop-address hidden></p>
     <p class="ft-line" data-shop-hours></p>
     <p class="ft-line" data-shop-closed></p>
-    <p class="ft-fine">표시된 금액은 실제 수리 내역을 집계한 참고용 정보이며 견적을 보증하지 않습니다.</p>
+    <p class="ft-fine">홈페이지 가격은 대성오토 실제 작업 기준의 예상 금액입니다. 차량의 세부 사양과 고장 상태에 따라 달라질 수 있으며, 점검 후 최종 금액을 먼저 안내하고 고객 동의 후 작업합니다.</p>
   </div>
 </footer>
 
@@ -349,14 +403,19 @@
       </div>
       <button type="button" class="sheet-x" id="sheetClose" aria-label="닫기">✕</button>
     </div>
-    <div class="sheet-tabs" id="sheetTabs" role="tablist"></div>
+    <!-- 탭 줄도 본문과 같은 1140px 안으로 맞춘다 (넓은 화면에서 제목과 어긋나지 않게) -->
+    <div class="sheet-tabs-wrap">
+      <div class="sheet-tabs" id="sheetTabs" role="tablist" aria-label="내용 구분"></div>
+    </div>
   </div>
-  <div class="sheet-bd" id="sheetBody"></div>
+  <div class="sheet-bd" id="sheetBody" role="tabpanel" tabindex="0"></div>
   <div class="sheet-ft" id="sheetFt">
-    <button type="button" class="btn ghost" id="sheetRestart">다시 진단</button>
-    <a class="btn cta naver gtm-cta cta-naver" id="gtm-naver-sheet"
-       data-gtm-event="naver_reserve_click" data-gtm-location="sheet" href="#" hidden>무상 점검 예약</a>
-    <button type="button" class="btn cta ask" id="sheetAsk">문의하기</button>
+    <div class="sheet-ft-in">
+      <button type="button" class="btn ghost" id="sheetRestart">다시 진단</button>
+      <a class="btn cta naver gtm-cta cta-naver" id="gtm-naver-sheet"
+         data-gtm-event="naver_reserve_click" data-gtm-location="sheet" href="#" hidden>무상 점검 예약</a>
+      <button type="button" class="btn cta ask" id="sheetAsk">문의하기</button>
+    </div>
   </div>
 </div>
 
@@ -365,6 +424,12 @@
   <a class="rail-i rail-blog gtm-cta cta-blog" id="gtm-blog"
      data-gtm-event="blog_click" data-gtm-location="rail" href="#" hidden>
     <span class="rail-ico">blog</span><span class="rail-l">블로그</span>
+  </a>
+  <a class="rail-i rail-kakao gtm-cta cta-kakao" id="gtm-kakao"
+     data-gtm-event="kakao_click" data-gtm-location="rail" href="#" hidden>
+    <span class="rail-ico">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.6c-4.7 0-8.5 2.9-8.5 6.5 0 2.3 1.6 4.4 4 5.6l-.9 3.3c-.1.3.2.5.5.4l3.9-2.5c.3 0 .7.1 1 .1 4.7 0 8.5-2.9 8.5-6.5S16.7 3.6 12 3.6z"/></svg>
+    </span><span class="rail-l">카톡</span>
   </a>
   <a class="rail-i rail-naver gtm-cta cta-naver" id="gtm-naver"
      data-gtm-event="naver_reserve_click" data-gtm-location="rail" href="#" hidden>
@@ -380,8 +445,10 @@
   </a>
 </aside>
 
-<script src="data/data.js?v=1787900514"></script>
-<script src="config.js?v=1787893520"></script>
-<script src="assets/js/app.js?v=1787900274"></script>
+<!-- defer: 세 파일 모두 문서를 다 읽은 뒤에 실행된다. 적힌 순서는 그대로 지켜지므로
+     data -> config -> app 순서가 보장되고, 화면이 먼저 그려져 첫 화면이 빨라진다. -->
+<script defer src="data/data.js?v=1787885778"></script>
+<script defer src="config.js?v=1788245939"></script>
+<script defer src="assets/js/app.js?v=1788246082"></script>
 </body>
 </html>

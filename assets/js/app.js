@@ -44,6 +44,38 @@
     return (v >= 100 ? Math.round(v) : Math.round(v * 10) / 10).toLocaleString('ko-KR') + '만';
   }
 
+  // 가로로 넘치는 줄(브랜드 칩·시트 탭)에 '더 있다'는 흐림 표시를 켜고 끈다.
+  // 휴대폰에는 스크롤바가 없어서 이 표시가 없으면 넘치는 줄인지 알 수 없다.
+  function syncScrollHint(scroller, wrap) {
+    if (!scroller || !wrap) return;
+    var more = scroller.scrollWidth - scroller.clientWidth - scroller.scrollLeft > 4;
+    wrap.classList.toggle('more', more);
+  }
+
+  function watchScrollHint(scroller, wrap) {
+    if (!scroller || !wrap) return;
+    var run = function () { syncScrollHint(scroller, wrap); };
+    scroller.addEventListener('scroll', run, { passive: true });
+    window.addEventListener('resize', run);
+    run();
+  }
+
+  // 데이터를 못 읽었을 때. alert 는 화면을 막아버리고 브라우저 자동화도 멈추므로 쓰지 않는다.
+  function showDataNotice() {
+    var box = $('#dataNotice');
+    if (!box) {
+      box = el('div', 'blk');
+      box.id = 'dataNotice';
+      box.style.cssText = 'border-color:#e2551e;background:#fdf1ec;margin:0 auto 16px;max-width:1100px';
+      box.innerHTML = '<p class="blk-h" style="color:#c2440f">가격 자료를 불러오지 못했습니다</p>' +
+        '<p class="blk-s">잠시 후 새로고침해 주세요. 급하시면 전화나 카톡으로 바로 안내드립니다.</p>';
+      var sec = $('.tiles-sec .wrap');
+      if (sec) sec.insertBefore(box, sec.firstChild);
+    }
+    box.hidden = false;
+    try { box.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { }
+  }
+
   function el(tag, cls, html) {
     var e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -78,7 +110,7 @@
   var S = {
     step: 1, brand: null, car: null, spec: null,
     situ: [], syms: [], gear: null, galIdx: 0, started: false,
-    sheet: null, tab: null, histPushed: false
+    sheet: null, tab: null, histPushed: false, opener: null
   };
 
   /* ------------------------------------------------------------- 설정 적용 */
@@ -106,11 +138,18 @@
         li.hidden = false;
       });
     }
+    // 배경 사진은 style.css 가 이미 그리고 있다 (첫 화면 속도 때문).
+    // 여기서는 설정에 적힌 것과 '다른' 사진을 찾았을 때만 바꿔 끼운다.
+    // 같은 사진이면 손대지 않는다 — 손대면 브라우저가 괜히 다시 그린다.
     if (shop.heroImage) {
       findImage(shop.heroImage, function (url) {
         var bg = $('#heroBg');
-        bg.style.backgroundImage = 'url("' + url + '")';
-        bg.classList.add('has-img');
+        var now = '';
+        try { now = getComputedStyle(bg).backgroundImage || ''; } catch (e) { }
+        var file = url.split('/').pop();
+        if (now.indexOf(file) !== -1 || now.indexOf(encodeURIComponent(file)) !== -1) return;
+        bg.style.backgroundImage = 'url("' + url + '"), ' +
+          'linear-gradient(115deg, #16273f 0%, #1f3557 52%, #2b4670 100%)';
       });
     }
 
@@ -139,6 +178,7 @@
 
     renderAbout();
     renderHistory();
+    renderServices();
     renderWarranty();
     renderMap();
     injectSchema();
@@ -246,6 +286,29 @@
     $('#histAll').addEventListener('toggle', function () {
       if ($('#histAll').open) track('history_open', {});
     });
+  }
+
+  // 고장 범위에 따라 방법이 달라진다는 것을 사다리 모양으로 보여준다.
+  // 위에서 아래로 갈수록 손상이 큰 경우이므로 순서가 곧 뜻이다.
+  function renderServices() {
+    var sv = CFG.services || {};
+    var sec = $('#service');
+    if (!sv.steps || !sv.steps.length) { if (sec) sec.hidden = true; return; }
+    var t = $('[data-service-title]'); if (t) t.textContent = sv.title || '수리 서비스';
+    var sb = $('[data-service-sub]'); if (sb) { sb.textContent = sv.sub || ''; sb.hidden = !sv.sub; }
+    var g = $('#ladder');
+    g.innerHTML = '';
+    sv.steps.forEach(function (it, i) {
+      g.appendChild(el('li', 'ld',
+        '<span class="ld-n">' + (i + 1) + '</span>' +
+        '<div class="ld-b">' +
+        '<div class="ld-hd"><span class="ld-t">' + esc(it.t) + '</span>' +
+        (it.warranty ? '<span class="ld-w">보증 ' + esc(it.warranty) + '</span>' : '') + '</div>' +
+        (it.cause ? '<p class="ld-c">' + esc(it.cause) + '</p>' : '') +
+        '<p class="ld-d">' + esc(it.d) + '</p>' +
+        '</div>'));
+    });
+    var n = $('[data-service-note]'); if (n) { n.textContent = sv.note || ''; n.hidden = !sv.note; }
   }
 
   function renderWarranty() {
@@ -510,6 +573,8 @@
       });
       g.appendChild(b);
     });
+    // 칩을 채운 뒤에 재야 넘치는지 알 수 있다 (비어 있을 때 재면 항상 '안 넘침'이 된다)
+    syncScrollHint(g, $('#brandWrap'));
   }
 
   function currentCars() {
@@ -638,17 +703,30 @@
     });
   }
 
+  // 2단계(언제)는 진단 계산에 쓰이지 않는다. 접수 내용에 참고로 붙을 뿐이다.
+  // 그래서 막지 않고 건너뛸 수 있게 둔다. 결과에 영향도 없는 칸을 필수로 만들면
+  // 손님을 붙잡아 두고 아무것도 돌려주지 않는 셈이 된다.
   function canNext() {
     if (S.step === 1) return !!S.car;
-    if (S.step === 2) return S.situ.length > 0;
+    if (S.step === 2) return true;
     if (S.step === 3) return S.syms.length > 0;
     return false;
   }
 
+  // 버튼이 회색일 때 무엇을 해야 하는지 알려준다.
+  function hintFor() {
+    if (S.step === 1 && !S.car) return '먼저 차종을 골라주세요.';
+    if (S.step === 3 && !S.syms.length) return '증상을 하나 이상 골라주세요.';
+    return '';
+  }
+
   function syncNav() {
-    $('#btnNext').disabled = !canNext();
-    $('#btnNext').textContent = S.step === 3 ? '진단 결과 보기' : '다음';
+    var next = $('#btnNext');
+    next.disabled = !canNext();
+    next.textContent = S.step === 3 ? '진단 결과 보기'
+      : (S.step === 2 && !S.situ.length ? '건너뛰기' : '다음');
     $('#btnPrev').hidden = S.step === 1;
+    $('#stepHint').textContent = hintFor();
   }
 
   function goto(n) {
@@ -790,39 +868,84 @@
 
   /* ═════════════════════════ 전체화면 패널 ═════════════════════════ */
 
+  // 시트가 열려 있는 동안 뒤쪽 화면은 아예 없는 것으로 취급한다.
+  // 이렇게 하지 않으면 탭 키가 보이지 않는 뒤쪽 버튼 91개를 계속 돌아다니고,
+  // 읽어주는 프로그램도 뒤쪽 내용을 읽는다.
+  var BEHIND = ['.hd', 'main', '.ft', '.rail'];
+
+  function setBehindInert(on) {
+    BEHIND.forEach(function (sel) {
+      var n = $(sel);
+      if (!n) return;
+      if (on) { n.setAttribute('inert', ''); n.setAttribute('aria-hidden', 'true'); }
+      else { n.removeAttribute('inert'); n.removeAttribute('aria-hidden'); }
+    });
+  }
+
+  // inert 를 모르는 브라우저용 대비책: 탭이 시트 밖으로 나가면 안으로 되돌린다.
+  function trapTab(e) {
+    if (e.key !== 'Tab' || !S.sheet) return;
+    var sh = $('#sheet');
+    var f = $$('button, a[href], input, textarea, select, [tabindex]:not([tabindex="-1"])', sh)
+      .filter(function (n) { return !n.disabled && n.offsetParent !== null; });
+    if (!f.length) return;
+    var first = f[0], last = f[f.length - 1];
+    if (!sh.contains(document.activeElement)) { e.preventDefault(); first.focus(); return; }
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+
   function openSheet(kind, tabId) {
     var conf = SHEETS[kind];
     if (!conf) return;
     if (!dataReady()) {          // 데이터가 없으면 빈 패널이 뜨는 대신 이유를 알려준다
-      alert('가격 데이터를 불러오지 못했습니다.\n\n' +
-            'index.html 파일을 직접 열면 브라우저 보안 정책 때문에 데이터를 읽지 못합니다.\n' +
-            '실제 서버에 올린 주소로 접속하시거나, site/data/data.js 파일이 있는지 확인해 주세요.');
+      showDataNotice();
       return;
     }
+    // 같은 패널을 안에서 다시 그리는 경우(차종 고른 뒤)에는 여는 버튼을 덮어쓰면 안 된다.
+    // 덮어쓰면 사라질 버튼을 기억하게 되어 닫을 때 초점이 갈 곳을 잃는다.
+    if (S.sheet !== kind) S.opener = document.activeElement;
     S.sheet = kind;
     var sh = $('#sheet');
+    sh.className = 'sheet' + (conf.narrow ? ' narrow' : '');
     $('#sheetEyebrow').textContent = conf.eyebrow;
     $('#sheetTitle').textContent = typeof conf.title === 'function' ? conf.title() : conf.title;
     $('#sheetRestart').hidden = kind !== 'result';
-    $('#sheetAsk').textContent = kind === 'result' ? '문의하기' : '상담 문의';
+    $('#sheetAsk').textContent =
+      (kind === 'result' || (kind === 'quote' && S.car)) ? '문의하기' : '상담 문의';
 
     var tabs = conf.tabs();
     var bar = $('#sheetTabs');
     bar.innerHTML = '';
     S.tab = tabId && tabs.some(function (t) { return t.id === tabId; }) ? tabId : tabs[0].id;
-    tabs.forEach(function (t) {
+    tabs.forEach(function (t, i) {
       var b = el('button', 'sheet-tab' + (t.id === S.tab ? ' on' : ''));
       b.type = 'button';
+      b.id = 'sheetTab-' + t.id;
       b.setAttribute('role', 'tab');
+      b.setAttribute('aria-controls', 'sheetBody');
+      b.setAttribute('aria-selected', t.id === S.tab ? 'true' : 'false');
+      b.tabIndex = t.id === S.tab ? 0 : -1;   // 탭 묶음은 화살표로 옮기는 것이 표준
       b.textContent = t.label;
       b.addEventListener('click', function () { showTab(tabs, t.id); });
+      b.addEventListener('keydown', function (e) {
+        var d = e.key === 'ArrowRight' ? 1 : (e.key === 'ArrowLeft' ? -1 : 0);
+        if (!d) return;
+        e.preventDefault();
+        var n = tabs[(i + d + tabs.length) % tabs.length];
+        showTab(tabs, n.id);
+        var nb = $('#sheetTab-' + n.id);
+        if (nb) nb.focus();
+      });
       bar.appendChild(b);
     });
-    bar.hidden = tabs.length < 2;
+    bar.parentNode.hidden = tabs.length < 2;
 
     sh.hidden = false;
     document.body.classList.add('locked');
+    setBehindInert(true);
     showTab(tabs, S.tab);
+    syncScrollHint($('#sheetTabs'), bar.parentNode);
     $('#sheetClose').focus();
 
     // 패널을 열 때 방문 기록을 하나 쌓아둔다.
@@ -840,14 +963,19 @@
   function showTab(tabs, id) {
     S.tab = id;
     $$('#sheetTabs .sheet-tab').forEach(function (b, i) {
-      b.className = 'sheet-tab' + (tabs[i].id === id ? ' on' : '');
+      var on = tabs[i].id === id;
+      b.className = 'sheet-tab' + (on ? ' on' : '');
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+      b.tabIndex = on ? 0 : -1;
+      if (on && b.scrollIntoView) b.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     });
+    var t = tabs.filter(function (x) { return x.id === id; })[0];
+    $('#sheetBody').setAttribute('aria-label', (t ? t.label : '') + ' 내용');
     restoreLeadForm();          // 폼이 패널 안에 있으면 먼저 빼낸다 (innerHTML 로 지워지면 안 됨)
     var body = $('#sheetBody');
     body.innerHTML = '';
     var pane = el('div', 'sheet-pane');
     body.appendChild(pane);
-    var t = tabs.filter(function (x) { return x.id === id; })[0];
     if (t) t.render(pane);
     body.scrollTop = 0;
     track('sheet_tab', { sheet: S.sheet, tab: id });
@@ -858,7 +986,11 @@
     restoreLeadForm();
     $('#sheet').hidden = true;
     document.body.classList.remove('locked');
+    setBehindInert(false);
     S.sheet = null;
+    // 열기 전에 누른 버튼으로 초점을 돌려놓는다. 그러지 않으면 탭 키가 페이지 맨 위로 튄다.
+    try { if (S.opener && S.opener.focus) S.opener.focus({ preventScroll: true }); } catch (e) { }
+    S.opener = null;
     if (S.histPushed && !fromBack) {
       S.histPushed = false;
       try { history.back(); } catch (e) { /* 무시 */ }
@@ -874,15 +1006,37 @@
     /* ===== 진단 결과 ===== */
     result: {
       eyebrow: '자가진단 결과',
+      narrow: true,                  // 읽는 글이라 본문 폭을 좁게 둔다
       title: function () { return S.car ? S.car.name + (S.spec ? ' · ' + S.spec : '') : '진단 결과'; },
+      // 탭 순서 주의: '정찰 가격'이 '예상 비용'보다 앞이다.
+      // 예상 비용은 그 차종 실사례가 20건 넘게 쌓여야 나오는데 해당 차종이 많지 않다.
+      // 정찰 가격은 대부분의 차종에 값이 있으므로, 손님이 먼저 만나야 하는 쪽은 이쪽이다.
       tabs: function () {
         return [
           { id: 'diag', label: '진단', render: paneDiag },
-          { id: 'cost', label: '예상 비용', render: paneCost },
           { id: 'menu', label: '정찰 가격', render: paneMenu },
+          { id: 'cost', label: '실제 청구액', render: paneCost },
           { id: 'case', label: '실제 사례', render: paneCase },
           { id: 'ask', label: '문의하기', render: paneAsk }
         ];
+      }
+    },
+
+    /* ===== 내 차 수리비 찾기 =====
+       전 차종 표를 펼치는 대신, 차 한 대를 고르게 하고 그 차 값만 보여준다.
+       차를 고르기 전에는 탭이 없다(고를 것이 하나뿐이므로). */
+    quote: {
+      eyebrow: '내 차 수리비 찾기',
+      narrow: true,
+      title: function () {
+        return S.car ? S.car.name + (S.spec ? ' · ' + S.spec : '') : '어떤 차를 타고 계신가요?';
+      },
+      tabs: function () {
+        if (!S.car) return [{ id: 'pick', label: '차종 선택', render: paneQuotePick }];
+        var t = [{ id: 'menu', label: '정찰 가격', render: paneMenu }];
+        if (samplesForCar().length) t.push({ id: 'case', label: '실제 사례', render: paneQuoteCase });
+        t.push({ id: 'ask', label: '문의하기', render: paneAsk });
+        return t;
       }
     },
 
@@ -906,21 +1060,29 @@
   function paneDiag(p) {
     var labels = symLabels();
     var head = EMPATHY[S.syms[0]] || '증상을 남겨주셔서 감사합니다. 원인부터 확인해 보겠습니다.';
+    // 손님이 고른 것을 전부 되돌려 보여준다. 특히 2단계(언제)는 여기 말고 나올 곳이 없다.
+    // 물어보고 화면에 안 비치면 헛수고를 시킨 셈이 된다.
+    var picked = labels.concat(situLabels());
+    if (S.gear && S.gear !== '잘 모르겠음') picked.push(S.gear);
     var emp = el('div', 'blk empathy');
     emp.innerHTML = '<span class="car">' + esc(S.car.name + (S.spec ? ' · ' + S.spec : '')) + '</span>' +
       '<p class="h">' + esc(head) + '</p>' +
       '<p class="p">같은 증상으로 찾아오신 분들이 실제로 어떤 수리를 받았는지 그대로 보여드립니다.</p>' +
-      '<div class="tags">' + labels.map(function (t) { return '<span>' + esc(t) + '</span>'; }).join('') +
-      (S.gear && S.gear !== '잘 모르겠음' ? '<span>' + esc(S.gear) + '</span>' : '') + '</div>';
+      '<div class="tags">' +
+      picked.map(function (t) { return '<span>' + esc(t) + '</span>'; }).join('') + '</div>';
     p.appendChild(emp);
 
     var mix = computeMix();
     var symN = S.syms.reduce(function (a, s) {
       var e = D.cases.bySymptom[s]; return a + (e ? e.n : 0);
     }, 0);
+    // 이 비중은 증상 기준 전 차종 집계다. 머리글이 차종명이라 손님은 '내 차 통계'로
+    // 읽기 쉬우므로, 무엇을 센 숫자인지 문장에서 분명히 밝힌다.
     var blk = el('div', 'blk');
-    blk.innerHTML = '<p class="blk-h">이 증상으로 실제 진행된 수리</p>' +
-      '<p class="blk-s">' + esc(labels.join(' · ')) + ' 증상으로 입고된 ' + won(symN) + '건 집계</p>';
+    blk.innerHTML = '<p class="blk-h">같은 증상으로 실제 진행된 수리</p>' +
+      '<p class="blk-s">차종을 가리지 않고 <b>' + esc(labels.join(' · ')) +
+      '</b> 증상으로 입고된 ' + won(symN) + '건을 모아 센 것입니다. ' +
+      esc(S.car.name) + ' 한 차종만의 통계가 아닙니다.</p>';
     if (!mix.length) {
       blk.appendChild(el('p', 'blk-s', '이 조합은 사례가 적어 비중을 보여드리기 어렵습니다. 점검으로 확인이 필요합니다.'));
     }
@@ -948,22 +1110,41 @@
     order.forEach(function (t) { var r = pickBand(t); if (r) maxP75 = Math.max(maxP75, r.b.p75); });
 
     // 이 차종 실사례가 모자라면 금액을 지어내지 않는다.
+    // 다만 여기서 끝내면 막다른 길이 된다. 정찰 가격은 대부분의 차종에 값이 있으므로
+    // 그쪽으로 보내주는 것이 이 화면의 가장 중요한 역할이다.
     var usable = order.filter(function (t) { return pickBand(t); });
     if (!usable.length) {
+      var hasMenu = !!(findCategory(S.car.name, S.spec, S.brand) ||
+                       (remanFor(S.car.name) || []).length || pricesFor(S.car.name));
       var none = el('div', 'blk');
       none.innerHTML =
-        '<p class="blk-h">이 차종은 아직 사례가 충분하지 않습니다</p>' +
-        '<p class="blk-s">사양에 따라 차이가 커서 금액을 말씀드리기 어렵습니다. ' +
-        '정밀 점검 후 정확히 알려드립니다.</p>';
-      var url = ((CFG.links || {}).naverReserve) || '';
+        '<p class="blk-h">이 차종은 실제 청구 사례가 아직 모입니다</p>' +
+        '<p class="blk-s">같은 증상이라도 사양에 따라 차이가 커서, 사례가 충분히 쌓이기 전에는 ' +
+        '금액대를 말씀드리지 않습니다.' +
+        (hasMenu ? ' 대신 <b>정해진 정찰 가격</b>은 지금 바로 확인하실 수 있습니다.' : '') + '</p>';
+      var col = el('div', 'cta-col');
+      if (hasMenu) {
+        var go = el('button', 'btn cta ask');
+        go.type = 'button';
+        go.textContent = '이 차량 정찰 가격 보기';
+        go.addEventListener('click', function () {
+          showTab(SHEETS.result.tabs(), 'menu');
+          track('cost_to_menu', { car: S.car.name });
+        });
+        col.appendChild(go);
+      }
+      // 예약 버튼은 아래 고정 바에 이미 있다. 정찰 가격으로 보내는 버튼이 있을 때
+      // 초록 예약 버튼을 또 놓으면 같은 화면에 같은 버튼이 두 개가 된다.
+      var url = hasMenu ? '' : (((CFG.links || {}).naverReserve) || '');
       if (url) {
         var a = el('a', 'btn cta naver gtm-cta');
         a.href = url; a.target = '_blank'; a.rel = 'noopener';
-        a.textContent = '점검 예약하기';
+        a.textContent = '무상 점검 예약하기';
         a.setAttribute('data-gtm-event', 'naver_reserve_click');
         a.setAttribute('data-gtm-location', 'cost-nodata');
-        none.appendChild(a);
+        col.appendChild(a);
       }
+      none.appendChild(col);
       p.appendChild(none);
       p.appendChild(el('p', 'disclaimer',
         '차종별로 실제 청구된 내역이 쌓인 경우에만 금액대를 보여드립니다. ' +
@@ -1001,7 +1182,206 @@
       '같은 증상이라도 분해 후 확인되는 상태에 따라 달라집니다. 정확한 금액은 무상 점검 후 알려드립니다.'));
   }
 
+  /* ---------------- 내 차 수리비 찾기 ---------------- */
+
+  // 고른 차를 자가진단 1단계에도 그대로 반영한다.
+  // 손님에게 '내 차'는 하나뿐인데 화면 두 곳이 서로 다른 차를 들고 있으면 안 된다.
+  function syncHeroPicker() {
+    try { renderBrands(); renderCars(); renderSpecs(); syncNav(); } catch (e) { /* 무시 */ }
+  }
+
+  function paneQuotePick(p) {
+    var pick = null;                  // 확정 전까지는 S.car 를 건드리지 않는다
+    var brand = null;
+
+    function commit(c, b, spec) {
+      S.car = c; S.brand = b; S.spec = spec || null;
+      syncHeroPicker();
+      track('quote_car_select', { brand: b, car: c.name, spec: spec || '' });
+      openSheet('quote', 'menu');     // 같은 패널을 가격 화면으로 다시 그린다
+    }
+
+    function draw() {
+      p.innerHTML = '';
+
+      /* --- 사양 고르는 단계 --- */
+      if (pick && pick.specs && pick.specs.length) {
+        var back = el('button', 'qp-back');
+        back.type = 'button';
+        back.textContent = '\u2039 다른 차 선택';
+        back.addEventListener('click', function () { pick = null; draw(); });
+        p.appendChild(back);
+
+        var sb = el('div', 'blk');
+        sb.innerHTML = '<p class="blk-h">' + esc(pick.name) + ' \u2014 사양을 골라주세요</p>' +
+          '<p class="blk-s">사양에 따라 정찰 가격이 다릅니다. 모르시면 건너뛰셔도 됩니다.</p>';
+        var chips = el('div', 'chips sm');
+        var chosen = null;
+        pick.specs.slice(0, 24).forEach(function (sp) {
+          var b = el('button', 'chip');
+          b.type = 'button';
+          b.textContent = sp;
+          b.addEventListener('click', function () {
+            chosen = (chosen === sp) ? null : sp;
+            Array.prototype.forEach.call(chips.children, function (x) {
+              x.className = 'chip' + (x.textContent === chosen ? ' on' : '');
+            });
+          });
+          chips.appendChild(b);
+        });
+        sb.appendChild(chips);
+        p.appendChild(sb);
+
+        var col = el('div', 'cta-col');
+        var go = el('button', 'btn cta ask');
+        go.type = 'button';
+        go.textContent = '이 차량 정찰 가격 보기';
+        go.addEventListener('click', function () { commit(pick, brand, chosen); });
+        col.appendChild(go);
+        p.appendChild(col);
+        return;
+      }
+
+      /* --- 차종 고르는 단계 --- */
+      var head = el('div', 'blk');
+      head.innerHTML = '<p class="blk-h">차종을 고르시면 그 차 가격만 보여드립니다</p>' +
+        '<p class="blk-s">미션오일 \u00b7 재제조 미션 \u00b7 경정비 정찰 가격을 한 번에 모아서 보여드립니다.</p>';
+      p.appendChild(head);
+
+      var sw = el('div', 'qp-search');
+      var inp = el('input', 'qp-input');
+      inp.type = 'search';
+      inp.placeholder = '차종 검색 (예: 그랜저, 모하비)';
+      inp.setAttribute('autocomplete', 'off');
+      inp.setAttribute('enterkeyhint', 'search');
+      sw.appendChild(inp);
+      p.appendChild(sw);
+
+      var strip = el('div', 'qp-brands');
+      p.appendChild(strip);
+
+      var list = el('div', 'qp-list');
+      list.setAttribute('role', 'listbox');
+      list.setAttribute('aria-label', '차종 목록');
+      p.appendChild(list);
+
+      function pool() {
+        var q = norm(inp.value), out = [];
+        if (q) {
+          D.catalog.forEach(function (grp) {
+            grp.cars.forEach(function (c) {
+              var k = norm(c.name), at = k.indexOf(q);
+              if (at === -1) return;
+              out.push({ car: c, brand: grp.brand, rank: (k === q ? 0 : (at === 0 ? 1 : 2)), len: k.length });
+            });
+          });
+          out.sort(function (a, b) {
+            return a.rank - b.rank || a.len - b.len ||
+              (a.car.hasPrice === b.car.hasPrice ? 0 : (a.car.hasPrice ? -1 : 1));
+          });
+        } else if (brand) {
+          var g = D.catalog.filter(function (x) { return x.brand === brand; })[0];
+          if (g) g.cars.forEach(function (c) { out.push({ car: c, brand: g.brand }); });
+        } else {
+          D.catalog.slice(0, 3).forEach(function (grp) {
+            grp.cars.slice(0, 14).forEach(function (c) { out.push({ car: c, brand: grp.brand }); });
+          });
+        }
+        return out.slice(0, 400);
+      }
+
+      function drawBrands() {
+        strip.innerHTML = '';
+        D.catalog.forEach(function (grp) {
+          if (!grp.cars.length) return;
+          var b = el('button', 'brand-b' + (brand === grp.brand ? ' on' : ''));
+          b.type = 'button';
+          b.textContent = grp.brand;
+          b.addEventListener('click', function () {
+            brand = (brand === grp.brand) ? null : grp.brand;
+            inp.value = '';
+            drawBrands(); drawList();
+          });
+          strip.appendChild(b);
+        });
+      }
+
+      function drawList() {
+        list.innerHTML = '';
+        var arr = pool();
+        if (!arr.length) {
+          list.appendChild(el('div', 'car-empty',
+            '찾는 차종이 없으면 전화나 카톡으로 물어보셔도 됩니다.'));
+          return;
+        }
+        var showBrand = !!norm(inp.value) || !brand;
+        arr.forEach(function (x) {
+          var c = x.car;
+          var b = el('button', 'car-i');
+          b.type = 'button';
+          b.setAttribute('role', 'option');
+          b.innerHTML = '<span>' + esc(c.name) +
+            (showBrand ? ' <span class="bd">' + esc(x.brand) + '</span>' : '') + '</span>' +
+            (c.hasPrice ? '<span class="tag">가격 확인</span>' : '<span class="tag gray">상담 안내</span>');
+          b.addEventListener('click', function () {
+            if (c.specs && c.specs.length) { pick = c; brand = x.brand; draw(); }
+            else commit(c, x.brand, null);
+          });
+          list.appendChild(b);
+        });
+      }
+
+      inp.addEventListener('input', function () { drawList(); });
+      drawBrands(); drawList();
+    }
+
+    draw();
+  }
+
+  // 증상과 상관없이 '그 차종' 사례만 고른다.
+  // 결과 화면의 사례 탭은 증상으로도 거르지만, 여기서는 아직 증상을 묻지 않았다.
+  function samplesForCar(limit) {
+    if (!S.car) return [];
+    var out = (D.samples || []).filter(function (x) {
+      return norm(x.car) === norm(S.car.name);
+    });
+    return limit ? out.slice(0, limit) : out;
+  }
+
+  function paneQuoteCase(p) {
+    var list = samplesForCar(12);
+    var blk = el('div', 'blk');
+    blk.innerHTML = '<p class="blk-h">' + esc(S.car.name) + ' 최근 수리 사례</p>' +
+      '<p class="blk-s">고객 정보는 담지 않고 차종 \u00b7 주행거리 \u00b7 증상 \u00b7 청구액만 표시합니다.</p>';
+    if (!list.length) blk.appendChild(el('p', 'pane-empty', '표시할 사례가 없습니다.'));
+    list.forEach(function (x) { blk.appendChild(sampleRow(x)); });
+    p.appendChild(blk);
+  }
+
+  function sampleRow(s) {
+    return el('div', 'sample',
+      '<div><div class="s1">' + esc(s.car) + ' \u00b7 ' +
+      esc((s.syms || []).map(symLabel).join(', ')) + '</div>' +
+      '<div class="s2">' + (s.ym ? esc(s.ym) + ' \u00b7 ' : '') +
+      (s.km ? '약 ' + s.km + '만km \u00b7 ' : '') + esc(LABEL[s.type] || s.type) + '</div></div>' +
+      '<div class="r">' + won(s.price) + '원</div>');
+  }
+
   function paneMenu(p) {
+    // 수리비 찾기로 들어온 손님은 차를 잘못 고를 수 있다. 되돌아갈 길을 위에 둔다.
+    // (자가진단 결과로 들어온 경우에는 아래 '다시 진단' 버튼이 그 역할을 한다)
+    if (S.sheet === 'quote') {
+      var back = el('button', 'qp-back');
+      back.type = 'button';
+      back.textContent = '‹ 다른 차 선택';
+      back.addEventListener('click', function () {
+        S.car = null; S.spec = null; S.brand = null;
+        syncHeroPicker();
+        openSheet('quote', 'pick');
+      });
+      p.appendChild(back);
+    }
+
     var cat = findCategory(S.car.name, S.spec, S.brand);
     if (cat) p.appendChild(menuBlock(cat, '이 차량 미션오일 교환 정찰 가격'));
 
@@ -1042,6 +1422,24 @@
     if (!cat && !(rm && rm.length) && !pr) {
       p.appendChild(el('p', 'pane-empty', '이 차량은 정찰 가격이 등록되어 있지 않습니다. 상담으로 안내드립니다.'));
     }
+
+    // 가격만 있으면 광고로 읽힌다. 같은 차를 실제로 얼마에 작업했는지 바로 아래 붙인다.
+    // 탭을 따로 두면 눌러보지 않는 손님에게는 없는 것과 같다.
+    var recent = samplesForCar(3);
+    if (recent.length) {
+      var rb = el('div', 'blk recent');
+      rb.innerHTML = '<p class="blk-h">' + esc(S.car.name) + ' 최근 실제 작업</p>' +
+        '<p class="blk-s">위 정찰 가격과 별개로, 실제로 청구된 내역입니다.</p>';
+      recent.forEach(function (x) { rb.appendChild(sampleRow(x)); });
+      if (samplesForCar().length > recent.length && S.sheet === 'quote') {
+        var more = el('button', 'qp-more');
+        more.type = 'button';
+        more.textContent = '이 차량 사례 더 보기';
+        more.addEventListener('click', function () { showTab(SHEETS.quote.tabs(), 'case'); });
+        rb.appendChild(more);
+      }
+      p.appendChild(rb);
+    }
   }
 
   function menuBlock(cat, title) {
@@ -1072,11 +1470,19 @@
       return;
     }
     var blk = el('div', 'blk');
-    blk.innerHTML = '<p class="blk-h">진단 내용 그대로 문의 남기기</p>' +
-      '<p class="blk-s">방금 고르신 차종과 증상이 아래에 채워져 있습니다. ' +
-      '성함과 연락처만 남겨주시면 확인 후 연락드립니다.</p>';
+    // 아래 폼의 안내문과 어긋나지 않게 쓴다.
+    // '연락처만 남겨주세요' 라고 해놓고 다섯 칸을 필수로 받으면 속은 기분이 든다.
+    // 수리비 찾기로 들어오면 증상을 묻지 않았다. 채워놓지도 않은 것을
+    // '이미 채워져 있습니다' 라고 하면 손님이 빈 칸을 찾느라 헤맨다.
+    var asked = S.syms.length > 0;
+    blk.innerHTML = '<p class="blk-h">' +
+      (asked ? '진단 내용 그대로 문의 남기기' : '이 차량으로 문의 남기기') + '</p>' +
+      '<p class="blk-s">' +
+      (asked ? '방금 고르신 차종과 증상은 이미 채워져 있습니다. 나머지만 확인해 주세요.'
+             : '차종은 이미 채워져 있습니다. 증상만 적어주시면 됩니다.') + '</p>';
     blk.appendChild(form);
     p.appendChild(blk);
+    setLeadCtx();
     fillLeadFromDiag();
     var n = $('#leadName');
     if (n && !n.value) setTimeout(function () { n.focus(); }, 120);
@@ -1102,46 +1508,76 @@
     if (!list.length) {
       blk.appendChild(el('p', 'pane-empty', '표시할 사례가 없습니다.'));
     }
-    list.forEach(function (s) {
-      blk.appendChild(el('div', 'sample',
-        '<div><div class="s1">' + esc(s.car) + ' · ' +
-        esc((s.syms || []).map(symLabel).join(', ')) + '</div>' +
-        '<div class="s2">' + (s.ym ? esc(s.ym) + ' · ' : '') +
-        (s.km ? '약 ' + s.km + '만km · ' : '') + esc(LABEL[s.type] || s.type) + '</div></div>' +
-        '<div class="r">' + won(s.price) + '원</div>'));
-    });
+    list.forEach(function (x) { blk.appendChild(sampleRow(x)); });
     p.appendChild(blk);
   }
 
   /* ---------------- 전체 가격표 탭 ---------------- */
 
+  // 미션오일 표는 변속기 형식(아이신 6단 / ZF 6단 …)으로 묶여 있다.
+  // 손님은 자기 차의 변속기 형식을 모르므로, 차종으로 찾을 길을 따로 만들어 준다.
+  // 걸러내는 단위는 '줄'이 아니라 '형식 묶음'이다. 줄만 남기면
+  // '위와 동일 (발보린 규격오일 사용)' 같은 줄이 가리킬 대상을 잃는다.
   function paneAllOil(p) {
-    var groups = {};
-    (D.menu.categories || []).forEach(function (c) {
-      (groups[c.group || '기타'] = groups[c.group || '기타'] || []).push(c);
+    var cats = (D.menu.categories || []).map(function (c) {
+      return { c: c, key: norm((c.group || '') + ' ' + (c.name || '') + ' ' + (c.applies || '')) };
     });
-    Object.keys(groups).forEach(function (g) {
-      var blk = el('div', 'blk');
-      blk.innerHTML = '<p class="blk-h">' + esc(g) + '</p>';
-      groups[g].forEach(function (c) {
-        var box = el('div', 'mcat');
-        box.innerHTML = '<div class="mcat-n">' + esc(c.name) + '</div>' +
-          (c.applies ? '<div class="mcat-a">' + esc(c.applies) + '</div>' : '');
-        (c.items || []).forEach(function (it) {
-          box.appendChild(el('div', 'mrow',
-            '<span class="mn">' + esc(it.name) + '</span><span class="mp">' +
-            (it.price ? won(it.price) + '원' : '문의') + '</span>'));
-        });
-        (c.labor || []).forEach(function (it) {
-          box.appendChild(el('div', 'mrow labor',
-            '<span class="mn">' + esc(it.name) + '</span><span class="mp">' +
-            (it.price ? won(it.price) + '원' : '문의') + '</span>'));
-        });
-        (c.notes || []).forEach(function (n) { box.appendChild(el('p', 'mnote', esc(n))); });
-        blk.appendChild(box);
+
+    var lab = el('label', 'srch tbl-srch');
+    lab.innerHTML = '<svg viewBox="0 0 24 24"><path d="M10 2a8 8 0 015.9 13.4l5.4 5.3-1.4 1.4-5.4-5.3A8 8 0 1110 2zm0 2a6 6 0 100 12 6 6 0 000-12z" fill="#656d78"/></svg>' +
+      '<input type="search" placeholder="차종 검색 (예: 그랜저, 모하비)" autocomplete="off">';
+    var holder = el('div');
+    p.appendChild(lab);
+    p.appendChild(holder);
+
+    function catBox(c) {
+      var box = el('div', 'mcat');
+      box.innerHTML = '<div class="mcat-n">' + esc(c.name) + '</div>' +
+        (c.applies ? '<div class="mcat-a">' + esc(c.applies) + '</div>' : '');
+      (c.items || []).forEach(function (it) {
+        box.appendChild(el('div', 'mrow',
+          '<span class="mn">' + esc(it.name) + '</span><span class="mp">' +
+          (it.price ? won(it.price) + '원' : '문의') + '</span>'));
       });
-      p.appendChild(blk);
+      (c.labor || []).forEach(function (it) {
+        box.appendChild(el('div', 'mrow labor',
+          '<span class="mn">' + esc(it.name) + '</span><span class="mp">' +
+          (it.price ? won(it.price) + '원' : '문의') + '</span>'));
+      });
+      (c.notes || []).forEach(function (n) { box.appendChild(el('p', 'mnote', esc(n))); });
+      return box;
+    }
+
+    function draw(q) {
+      var nq = norm(q);
+      var hits = cats.filter(function (x) { return !nq || x.key.indexOf(nq) !== -1; });
+      holder.innerHTML = '';
+      if (!hits.length) {
+        holder.innerHTML = '<div class="pane-empty">찾으시는 차종이 표에 없습니다.<br>' +
+          '전화나 카톡으로 차대번호를 알려주시면 바로 확인해 드립니다.</div>';
+        return;
+      }
+      var groups = {}, order = [];
+      hits.forEach(function (x) {
+        var g = x.c.group || '기타';
+        if (!groups[g]) { groups[g] = []; order.push(g); }
+        groups[g].push(x.c);
+      });
+      order.forEach(function (g) {
+        var blk = el('div', 'blk');
+        blk.innerHTML = '<p class="blk-h">' + esc(g) + '</p>';
+        groups[g].forEach(function (c) { blk.appendChild(catBox(c)); });
+        holder.appendChild(blk);
+      });
+    }
+
+    var timer = null;
+    $('input', lab).addEventListener('input', function (e) {
+      var v = e.target.value;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(function () { draw(v); }, 120);
     });
+    draw('');
   }
 
   // 목록을 임의로 자르면 손님이 '내 차는 안 하는구나' 하고 나가버린다.
@@ -1151,7 +1587,7 @@
   function searchableList(p, placeholder, entries, rowHtml, emptyHtml) {
     var box = el('div', 'blk');
     var lab = el('label', 'srch tbl-srch');
-    lab.innerHTML = '<svg viewBox="0 0 24 24"><path d="M10 2a8 8 0 015.9 13.4l5.4 5.3-1.4 1.4-5.4-5.3A8 8 0 1110 2zm0 2a6 6 0 100 12 6 6 0 000-12z" fill="#868e9a"/></svg>' +
+    lab.innerHTML = '<svg viewBox="0 0 24 24"><path d="M10 2a8 8 0 015.9 13.4l5.4 5.3-1.4 1.4-5.4-5.3A8 8 0 1110 2zm0 2a6 6 0 100 12 6 6 0 000-12z" fill="#656d78"/></svg>' +
       '<input type="search" placeholder="' + esc(placeholder) + '" autocomplete="off">';
     var holder = el('div');
     box.appendChild(lab);
@@ -1250,8 +1686,7 @@
   /* ------------------------------------------------------------- 결과 열기 */
 
   function showResult() {
-    $('#leadCtx').textContent = '보내실 내용: ' + S.car.name + (S.spec ? ' ' + S.spec : '') +
-      ' / ' + symLabels().join(', ') + (S.gear && S.gear !== '잘 모르겠음' ? ' / ' + S.gear : '');
+    setLeadCtx();
     fillLeadFromDiag();
     var mix = computeMix();
     openSheet('result', 'diag');
@@ -1266,12 +1701,12 @@
 
   function renderGallery() {
     var items = CFG.gallery || [];
-    var tr = $('#galTrack'), dots = $('#galDots');
-    tr.innerHTML = ''; dots.innerHTML = '';
+    var tr = $('#galTrack');
+    tr.innerHTML = '';
     items.forEach(function (g, i) {
       var it = el('div', 'gal-item');
       it.innerHTML = '<div class="gal-ph"><span class="num">' + esc(g.step) + '</span>' +
-        '<img alt="' + esc(g.title) + '" loading="lazy">' +
+        '<img alt="' + esc(g.title) + '" loading="lazy" decoding="async">' +
         '<span class="ph-txt" hidden>사진 준비 중</span></div>' +
         '<div class="gal-txt"><div class="t">' + esc(g.title) + '</div>' +
         '<div class="d">' + esc(g.desc) + '</div></div>';
@@ -1285,13 +1720,10 @@
         $('.ph-txt', it).hidden = false;   // 사진이 하나도 없으면 자리표시
       });
       tr.appendChild(it);
-      var d = el('button');
-      d.type = 'button';
-      d.className = i === 0 ? 'on' : '';
-      d.setAttribute('aria-label', (i + 1) + '번째 사진');
-      d.addEventListener('click', function () { galGo(i); });
-      dots.appendChild(d);
     });
+    renderGalDots();
+    setupGalSwipe();
+    galGo(0);       // 처음부터 '이전' 화살표를 흐리게 해 둔다
   }
 
   function galPer() {
@@ -1299,14 +1731,68 @@
     return w >= 1000 ? 3 : (w >= 768 ? 2 : 1);
   }
 
+  // 한 번에 몇 장 보이는지에 따라 '넘길 수 있는 칸' 수가 달라진다.
+  // 사진 수만큼 점을 찍으면 데스크톱(3장씩)에서는 뒤쪽 점이 눌러도 안 움직인다.
+  function galPages() {
+    var n = (CFG.gallery || []).length;
+    return Math.max(1, n - galPer() + 1);
+  }
+
+  function renderGalDots() {
+    var dots = $('#galDots'), pages = galPages();
+    dots.innerHTML = '';
+    for (var i = 0; i < pages; i++) {
+      (function (i) {
+        var d = el('button');
+        d.type = 'button';
+        d.className = i === S.galIdx ? 'on' : '';
+        d.setAttribute('aria-label', (i + 1) + ' / ' + pages + ' 번째로 이동');
+        d.addEventListener('click', function () { galGo(i); });
+        dots.appendChild(d);
+      })(i);
+    }
+  }
+
   function galGo(i) {
     var items = CFG.gallery || [];
     if (!items.length) return;
     var per = galPer();
-    var max = Math.max(0, items.length - per);
+    var max = galPages() - 1;
     S.galIdx = Math.max(0, Math.min(i, max));
     $('#galTrack').style.transform = 'translateX(' + (-S.galIdx * (100 / per)) + '%)';
     $$('#galDots button').forEach(function (d, k) { d.className = k === S.galIdx ? 'on' : ''; });
+    // 끝에 닿으면 화살표를 흐리게 해서 더 없다는 것을 알린다
+    $('#galPrev').disabled = S.galIdx <= 0;
+    $('#galNext').disabled = S.galIdx >= max;
+  }
+
+  // 손가락으로 밀어서 넘기기. 휴대폰에서 34px 화살표만 누르게 하는 것은 무리다.
+  function setupGalSwipe() {
+    var gal = $('.gal');
+    if (!gal || gal.dataset.swipe) return;
+    gal.dataset.swipe = '1';
+    var x0 = null, y0 = null;
+    gal.addEventListener('touchstart', function (e) {
+      var t = e.touches[0]; x0 = t.clientX; y0 = t.clientY;
+    }, { passive: true });
+    gal.addEventListener('touchend', function (e) {
+      if (x0 === null) return;
+      var t = e.changedTouches[0];
+      var dx = t.clientX - x0, dy = t.clientY - y0;
+      x0 = null;
+      // 세로로 더 많이 움직였으면 페이지를 스크롤하려던 것이므로 건드리지 않는다
+      if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+      galGo(S.galIdx + (dx < 0 ? 1 : -1));
+    }, { passive: true });
+
+    // 키보드로도 넘어가야 한다
+    gal.tabIndex = 0;
+    gal.setAttribute('role', 'group');
+    gal.setAttribute('aria-label', '작업 과정 사진');
+    gal.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); galGo(S.galIdx - 1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); galGo(S.galIdx + 1); }
+    });
   }
 
   /* ------------------------------------------------------------- 폼 전송 */
@@ -1349,6 +1835,18 @@
 
   // 진단에서 고른 차종 · 증상을 폼에 미리 채운다.
   // 손님이 직접 고쳐 쓴 칸(data-typed)은 덮어쓰지 않는다.
+  // 보낼 내용을 손님에게 미리 보여주는 줄.
+  // 증상을 묻지 않은 경로(수리비 찾기)에서는 차종만 적는다.
+  function setLeadCtx() {
+    var box = $('#leadCtx');
+    if (!box) return;
+    if (!S.car) { box.textContent = ''; return; }
+    var t = '보내실 내용: ' + S.car.name + (S.spec ? ' ' + S.spec : '');
+    if (S.syms.length) t += ' / ' + symLabels().join(', ');
+    if (S.gear && S.gear !== '잘 모르겠음') t += ' / ' + S.gear;
+    box.textContent = t;
+  }
+
   function fillLeadFromDiag() {
     var carEl = $('#leadCar'), symEl = $('#leadSymptom');
     if (carEl && !carEl.dataset.typed && S.car) {
@@ -1384,26 +1882,35 @@
     e.preventDefault();
     var msg = $('#leadMsg');
     var f = readLead();
+    var agree = $('#leadAgree');
 
-    // 한 칸이라도 비면 빨간 테두리를 두르고 첫 빈 칸으로 커서를 옮긴다.
+    // 칸마다 무엇이 잘못됐는지 그 칸 아래에 적는다.
+    // '모두 입력해 주세요' 한 줄만 띄우면 어디가 문제인지 손님이 찾아야 한다.
     var checks = [
-      { el: f.nameEl,    ok: !!f.name },
-      { el: f.phoneEl,   ok: f.digits.length >= 9 },
-      { el: f.plateEl,   ok: !!f.plate },
-      { el: f.carEl,     ok: !!f.car },
-      { el: f.symptomEl, ok: !!f.symptom }
+      { el: f.nameEl,    err: 'errName',    ok: !!f.name,               why: '성함을 적어주세요.' },
+      { el: f.phoneEl,   err: 'errPhone',   ok: f.digits.length >= 9,   why: '연락처를 정확히 적어주세요.' },
+      { el: f.plateEl,   err: 'errPlate',   ok: !!f.plate,              why: '차량번호를 적어주세요. 모르시면 차종만이라도 알려주세요.' },
+      { el: f.carEl,     err: 'errCar',     ok: !!f.car,                why: '차종을 적어주세요.' },
+      { el: f.symptomEl, err: 'errSymptom', ok: !!f.symptom,            why: '어떤 증상인지 적어주세요.' }
     ];
+    if (agree) {
+      checks.push({ el: agree, err: 'errAgree', ok: agree.checked,
+                    why: '개인정보 이용에 동의해 주셔야 접수할 수 있습니다.' });
+    }
     var bad = null;
     checks.forEach(function (c) {
       c.el.setAttribute('aria-invalid', c.ok ? 'false' : 'true');
+      var box = $('#' + c.err);
+      if (box) box.textContent = c.ok ? '' : c.why;
       if (!c.ok && !bad) bad = c.el;
     });
     if (bad) {
       msg.className = 'lead-msg err';
-      msg.textContent = '성함 · 연락처 · 차량번호 · 차종 · 증상을 모두 입력해 주세요.';
-      try { bad.focus(); } catch (err) { }
+      msg.textContent = '표시된 칸을 확인해 주세요.';
+      try { bad.focus({ preventScroll: false }); } catch (err) { }
       return;
     }
+    msg.textContent = '';
 
     var lead = CFG.lead || {};
     var mode = lead.mode || 'auto';
@@ -1576,18 +2083,41 @@
 
     $('#galPrev').addEventListener('click', function () { galGo(S.galIdx - 1); });
     $('#galNext').addEventListener('click', function () { galGo(S.galIdx + 1); });
-    window.addEventListener('resize', function () { galGo(S.galIdx); });
+    // 화면 폭이 바뀌면 한 번에 보이는 장수가 달라지므로 점도 다시 찍는다
+    window.addEventListener('resize', function () {
+      renderGalDots();
+      galGo(S.galIdx);
+    });
+
+    // 가로로 넘치는 줄에 흐림 표시
+    watchScrollHint($('#brandGrid'), $('#brandWrap'));
+    watchScrollHint($('#sheetTabs'), $('.sheet-tabs-wrap'));
 
     $('#leadForm').addEventListener('submit', submitLead);
     $('#leadPhone').addEventListener('input', function (e) { e.target.value = fmtPhone(e.target.value); });
-    ['#leadName', '#leadPhone', '#leadPlate', '#leadCar', '#leadSymptom'].forEach(function (sel) {
-      var el2 = $(sel);
+    var FIELDS = [['#leadName', 'errName'], ['#leadPhone', 'errPhone'], ['#leadPlate', 'errPlate'],
+                  ['#leadCar', 'errCar'], ['#leadSymptom', 'errSymptom']];
+    FIELDS.forEach(function (pair) {
+      var el2 = $(pair[0]);
       if (!el2) return;
       el2.addEventListener('input', function () {
         el2.dataset.typed = '1';
-        if (el2.value.trim()) el2.setAttribute('aria-invalid', 'false');
+        if (el2.value.trim()) {
+          el2.setAttribute('aria-invalid', 'false');
+          var box = $('#' + pair[1]);
+          if (box) box.textContent = '';     // 고치는 순간 빨간 글씨를 지운다
+        }
       });
     });
+    var agree = $('#leadAgree');
+    if (agree) {
+      agree.addEventListener('change', function () {
+        if (agree.checked) {
+          agree.setAttribute('aria-invalid', 'false');
+          $('#errAgree').textContent = '';
+        }
+      });
+    }
 
     // 헤더 모바일 메뉴
     var burger = $('#burger'), mob = $('#hdMobile');
@@ -1616,9 +2146,10 @@
 
     $('#sheetClose').addEventListener('click', function () { closeSheet(); });
     $('#sheetAsk').addEventListener('click', function () {
-      if (S.sheet !== 'result') { closeSheet(); document.getElementById('offer').scrollIntoView(); return; }
-      var tabs = SHEETS.result.tabs();
-      showTab(tabs, 'ask');
+      // 수리비 찾기에서 차를 고른 뒤라면 문의 탭이 있다. 그쪽으로 보낸다.
+      var kind = (S.sheet === 'result' || (S.sheet === 'quote' && S.car)) ? S.sheet : null;
+      if (!kind) { closeSheet(); document.getElementById('offer').scrollIntoView(); return; }
+      showTab(SHEETS[kind].tabs(), 'ask');
       track('ask_click', { car: S.car ? S.car.name : '' });
     });
     $('#sheetRestart').addEventListener('click', function () {
@@ -1629,6 +2160,7 @@
     });
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && S.sheet) closeSheet();
+      trapTab(e);       // 탭 키가 시트 밖으로 새어나가지 않게
     });
 
     // 뒤로가기를 누르면 사이트를 떠나는 대신 패널만 닫는다.
