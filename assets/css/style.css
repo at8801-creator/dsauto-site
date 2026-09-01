@@ -167,7 +167,8 @@ a { color: inherit; }
 /* 첫 화면 배경은 이 페이지에서 가장 큰 그림이다. 자바스크립트로 넣으면
    274KB 짜리 data.js 를 다 읽은 뒤에야 그려져서 느린 휴대폰에서 3초 넘게 늦는다.
    그래서 여기 CSS 에 직접 적는다. 자바스크립트는 다른 확장자 사진을 찾았을 때만 바꾼다.
-   ★ config.js 의 shop.heroImage 를 바꾸면 아래 주소도 같이 바꿔주세요.
+   ★ 아래 url 은 손으로 고치지 마세요. config.js 의 shop.heroImage 만 고치고
+   '1_가격표 만들기.bat' 을 돌리면 이 줄이 자동으로 맞춰집니다.
    사진이 없으면 뒤에 적은 남색 그러데이션이 대신 보인다. */
 .hero-bg {
   position: absolute; inset: 0;
