@@ -109,7 +109,7 @@
 
   var S = {
     step: 1, brand: null, car: null, spec: null,
-    situ: [], syms: [], gear: null, galIdx: 0, started: false,
+    situ: [], syms: [], gear: null, galIdx: 0, revIdx: 0, started: false,
     sheet: null, tab: null, histPushed: false, opener: null
   };
 
@@ -260,35 +260,111 @@
     ]);
   }
 
-  // 네이버 리뷰 캡처. 파일이 실제로 있는 것만 넣고, 하나도 없으면 섹션을 감춘다.
+  /* ---------- 손님 후기 슬라이드 ----------
+     캡처마다 세로 길이가 크게 달라 여러 장을 늘어놓으면 지저분하다.
+     한 번에 한 장씩 보여주고 화살표·점·손가락으로 넘긴다. */
+
+  var revShown = [];          // 실제로 사진을 찾은 후기만 남긴다
+
   function renderReviews() {
     var list = CFG.reviews || [];
-    var box = $('#revs'), sec = $('#reviews');
-    if (!box || !sec) return;
-    box.innerHTML = '';
-    var pending = list.length, shown = 0;
+    var track = $('#revTrack'), sec = $('#reviews');
+    if (!track || !sec) return;
+    track.innerHTML = '';
+    revShown = [];
+    var pending = list.length;
     if (!pending) return;
 
     list.forEach(function (r, i) {
+      var item = el('div', 'rev-item');
       var card = el('div', 'rev');
       var img = document.createElement('img');
       img.alt = r.alt || ('대성오토 손님 후기 ' + (i + 1));
-      img.loading = 'lazy';
       img.decoding = 'async';
       card.appendChild(img);
-      box.appendChild(card);          // 순서를 지키려고 자리를 먼저 잡아둔다
-      card.hidden = true;
+      item.appendChild(card);
+      track.appendChild(item);      // 순서를 지키려고 자리를 먼저 잡아둔다
+      item.hidden = true;
       findImage(r.file, function (url) {
-        img.src = url; card.hidden = false; shown++; done();
+        img.onload = revFit;        // 사진이 그려진 뒤라야 높이를 잴 수 있다
+        img.src = url;
+        item.hidden = false;
+        done();
       }, function () {
-        card.parentNode.removeChild(card); done();
+        track.removeChild(item);
+        done();
       });
     });
 
     function done() {
       if (--pending) return;
-      if (shown) sec.hidden = false;
+      // 사진 찾기는 비동기라 끝나는 순서가 뒤섞인다. 화면에 놓인 순서대로 다시 모은다.
+      revShown = $$('.rev-item', track).filter(function (n) { return !n.hidden; });
+      if (!revShown.length) return;
+      sec.hidden = false;
+      renderRevDots();
+      setupRevSwipe();
+      revGo(0);
     }
+  }
+
+  function renderRevDots() {
+    var dots = $('#revDots');
+    if (!dots) return;
+    dots.innerHTML = '';
+    revShown.forEach(function (_, i) {
+      var d = el('button');
+      d.type = 'button';
+      d.className = i === S.revIdx ? 'on' : '';
+      d.setAttribute('aria-label', (i + 1) + ' / ' + revShown.length + ' 번째 후기');
+      d.addEventListener('click', function () { revGo(i); });
+      dots.appendChild(d);
+    });
+  }
+
+  // 후기마다 길이가 달라서, 보이는 칸의 높이를 그 후기에 맞춘다.
+  // 가장 긴 후기에 높이를 맞춰두면 짧은 후기에서 아래가 텅 빈다.
+  function revFit() {
+    var box = $('#revs'), cur = revShown[S.revIdx];
+    if (!box || !cur) return;
+    box.style.height = cur.offsetHeight + 'px';
+  }
+
+  function revGo(i) {
+    if (!revShown.length) return;
+    var max = revShown.length - 1;
+    S.revIdx = Math.max(0, Math.min(i, max));
+    $('#revTrack').style.transform = 'translateX(' + (-S.revIdx * 100) + '%)';
+    $$('#revDots button').forEach(function (d, k) { d.className = k === S.revIdx ? 'on' : ''; });
+    $('#revPrev').disabled = S.revIdx <= 0;
+    $('#revNext').disabled = S.revIdx >= max;
+    revFit();
+  }
+
+  function setupRevSwipe() {
+    var box = $('#revs');
+    if (!box || box.dataset.swipe) return;
+    box.dataset.swipe = '1';
+    var x0 = null, y0 = null;
+    box.addEventListener('touchstart', function (e) {
+      var t = e.touches[0]; x0 = t.clientX; y0 = t.clientY;
+    }, { passive: true });
+    box.addEventListener('touchend', function (e) {
+      if (x0 === null) return;
+      var t = e.changedTouches[0];
+      var dx = t.clientX - x0, dy = t.clientY - y0;
+      x0 = null;
+      if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+      revGo(S.revIdx + (dx < 0 ? 1 : -1));
+    }, { passive: true });
+
+    box.tabIndex = 0;
+    box.setAttribute('role', 'group');
+    box.setAttribute('aria-label', '손님 후기');
+    box.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); revGo(S.revIdx - 1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); revGo(S.revIdx + 1); }
+    });
   }
 
   function renderHistory() {
@@ -2119,7 +2195,11 @@
     window.addEventListener('resize', function () {
       renderGalDots();
       galGo(S.galIdx);
+      revFit();                 // 폭이 바뀌면 후기 사진 높이도 달라진다
     });
+
+    $('#revPrev').addEventListener('click', function () { revGo(S.revIdx - 1); });
+    $('#revNext').addEventListener('click', function () { revGo(S.revIdx + 1); });
 
     // 가로로 넘치는 줄에 흐림 표시
     watchScrollHint($('#brandGrid'), $('#brandWrap'));

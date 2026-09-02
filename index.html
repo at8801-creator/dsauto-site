@@ -30,7 +30,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800&display=swap"
       media="print" onload="this.media='all';this.onload=null">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800&display=swap"></noscript>
-<link rel="stylesheet" href="assets/css/style.css?v=1788309031">
+<link rel="stylesheet" href="assets/css/style.css?v=1788334952">
 </head>
 <body>
 
@@ -233,7 +233,14 @@
     <p class="sec-k">REVIEWS</p>
     <h2 class="sec-h">맡겨보신 분들이 남긴 후기</h2>
     <p class="sec-s">네이버 예약 리뷰에 올라온 내용입니다. 고쳐 쓰지 않고 그대로 옮겼습니다.</p>
-    <div class="revs" id="revs"></div>
+    <div class="revs" id="revs">
+      <div class="rev-track" id="revTrack"></div>
+    </div>
+    <div class="gal-nav">
+      <button type="button" class="gal-btn" id="revPrev" aria-label="이전 후기">‹</button>
+      <div class="gal-dots" id="revDots"></div>
+      <button type="button" class="gal-btn" id="revNext" aria-label="다음 후기">›</button>
+    </div>
   </div>
 </section>
 
@@ -451,8 +458,8 @@
 
 <!-- defer: 세 파일 모두 문서를 다 읽은 뒤에 실행된다. 적힌 순서는 그대로 지켜지므로
      data -> config -> app 순서가 보장되고, 화면이 먼저 그려져 첫 화면이 빨라진다. -->
-<script defer src="data/data.js?v=1788309213"></script>
+<script defer src="data/data.js?v=1788335164"></script>
 <script defer src="config.js?v=1788309200"></script>
-<script defer src="assets/js/app.js?v=1788309051"></script>
+<script defer src="assets/js/app.js?v=1788334883"></script>
 </body>
 </html>
