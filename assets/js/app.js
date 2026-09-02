@@ -286,7 +286,7 @@
       track.appendChild(item);      // 순서를 지키려고 자리를 먼저 잡아둔다
       item.hidden = true;
       findImage(r.file, function (url) {
-        img.onload = revFit;        // 사진이 그려진 뒤라야 높이를 잴 수 있다
+        img.onload = function () { revGo(S.revIdx); };   // 사진이 그려진 뒤라야 크기를 잰다
         img.src = url;
         item.hidden = false;
         done();
@@ -330,11 +330,18 @@
     box.style.height = cur.offsetHeight + 'px';
   }
 
+  // 고른 후기를 가운데로 끌어와서, 앞뒤 후기가 양옆에 걸쳐 보이게 한다.
   function revGo(i) {
     if (!revShown.length) return;
     var max = revShown.length - 1;
     S.revIdx = Math.max(0, Math.min(i, max));
-    $('#revTrack').style.transform = 'translateX(' + (-S.revIdx * 100) + '%)';
+
+    var box = $('#revs'), cur = revShown[S.revIdx];
+    var w = cur.offsetWidth || 1;                 // 좌우 여백까지 포함한 한 칸 너비
+    var x = box.clientWidth / 2 - (S.revIdx * w + w / 2);
+    $('#revTrack').style.transform = 'translateX(' + Math.round(x) + 'px)';
+
+    revShown.forEach(function (n, k) { n.className = 'rev-item' + (k === S.revIdx ? ' on' : ''); });
     $$('#revDots button').forEach(function (d, k) { d.className = k === S.revIdx ? 'on' : ''; });
     $('#revPrev').disabled = S.revIdx <= 0;
     $('#revNext').disabled = S.revIdx >= max;
@@ -2195,7 +2202,7 @@
     window.addEventListener('resize', function () {
       renderGalDots();
       galGo(S.galIdx);
-      revFit();                 // 폭이 바뀌면 후기 사진 높이도 달라진다
+      revGo(S.revIdx);          // 폭이 바뀌면 가운데 위치와 높이를 다시 잡는다
     });
 
     $('#revPrev').addEventListener('click', function () { revGo(S.revIdx - 1); });

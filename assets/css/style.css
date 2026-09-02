@@ -729,26 +729,37 @@ a { color: inherit; }
 }
 
 /* ══════════════════════════ 손님 후기 ══════════════════════════ */
-/* 캡처마다 세로 길이가 385~761px 로 제각각이라 여러 장을 늘어놓으면
-   밑이 들쭉날쭉해진다. 한 번에 한 장씩 원래 크기로 보여주고
-   화살표로 넘긴다. 조작법은 위쪽 작업 사진 슬라이드와 같다. */
+/* 한 장씩 보여주되 양옆 후기를 조금 걸쳐 보이게 한다.
+   꽉 채우면 더 있는 줄 모르고 그냥 지나친다.
+   모바일은 화면 끝까지 써야 옆이 보일 자리가 나오므로 wrap 여백을 상쇄한다. */
 .revs {
-  margin-top: 22px; overflow: hidden;
+  --rev-w: 320px;
+  margin: 22px -20px 0; overflow: hidden;
   transition: height .34s cubic-bezier(.4,.1,.2,1);
 }
-/* align-items 를 안 주면 칸들이 가장 긴 후기 높이로 늘어나서,
-   짧은 후기를 볼 때 아래가 텅 빈다. */
+/* align-items 를 안 주면 칸들이 가장 긴 후기 높이로 늘어난다 */
 .rev-track {
   display: flex; align-items: flex-start;
-  transition: transform .34s cubic-bezier(.4,.1,.2,1);
+  transition: transform .38s cubic-bezier(.4,.1,.2,1);
+  will-change: transform;
 }
-.rev-item { flex: 0 0 100%; display: flex; justify-content: center; align-items: flex-start; }
+.rev-item {
+  flex: 0 0 auto; width: var(--rev-w); padding: 0 7px; box-sizing: border-box;
+  opacity: .45; transform: scale(.95); transform-origin: 50% 30%;
+  transition: opacity .3s, transform .3s;
+}
+.rev-item.on { opacity: 1; transform: none; }
 .rev {
-  width: 100%; max-width: 420px;
   border: 1px solid var(--line); border-radius: var(--r);
   background: #fff; overflow: hidden;
+  box-shadow: 0 2px 10px rgba(20,25,35,.05);
 }
+.rev-item.on .rev { box-shadow: 0 6px 22px rgba(20,25,35,.12); }
 .rev img { display: block; width: 100%; height: auto; }
+
+@media (min-width: 700px) {
+  .revs { --rev-w: 434px; max-width: 660px; margin: 22px auto 0; }
+}
 
 /* ══════════════════════════ 보증 · 회사소개 · 오시는 길 ══════════════════════════ */
 .sec.bg { background: var(--bg-2); }
