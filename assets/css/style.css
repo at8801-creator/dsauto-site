@@ -728,6 +728,20 @@ a { color: inherit; }
   html { scroll-behavior: auto; }
 }
 
+/* ══════════════════════════ 손님 후기 ══════════════════════════ */
+/* 캡처마다 세로 길이가 제각각이라, 단(column)으로 흘려 담는다.
+   그리드로 하면 짧은 카드 밑에 빈칸이 크게 남는다. */
+.revs { margin-top: 22px; columns: 1; column-gap: 14px; }
+.rev {
+  break-inside: avoid; margin: 0 0 14px;
+  border: 1px solid var(--line); border-radius: var(--r);
+  background: #fff; overflow: hidden;
+}
+.rev img { display: block; width: 100%; height: auto; }
+.revs-note { margin-top: 4px; font-size: 12.5px; color: var(--ink-3); }
+@media (min-width: 700px)  { .revs { columns: 2; } }
+@media (min-width: 1040px) { .revs { columns: 3; } }
+
 /* ══════════════════════════ 보증 · 회사소개 · 오시는 길 ══════════════════════════ */
 .sec.bg { background: var(--bg-2); }
 

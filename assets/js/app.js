@@ -178,6 +178,7 @@
 
     renderAbout();
     renderHistory();
+    renderReviews();
     renderServices();
     renderWarranty();
     renderMap();
@@ -257,6 +258,37 @@
       ['사업자등록번호', shop.bizNo],
       ['전문분야', shop.tagline]
     ]);
+  }
+
+  // 네이버 리뷰 캡처. 파일이 실제로 있는 것만 넣고, 하나도 없으면 섹션을 감춘다.
+  function renderReviews() {
+    var list = CFG.reviews || [];
+    var box = $('#revs'), sec = $('#reviews');
+    if (!box || !sec) return;
+    box.innerHTML = '';
+    var pending = list.length, shown = 0;
+    if (!pending) return;
+
+    list.forEach(function (r, i) {
+      var card = el('div', 'rev');
+      var img = document.createElement('img');
+      img.alt = r.alt || ('대성오토 손님 후기 ' + (i + 1));
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      card.appendChild(img);
+      box.appendChild(card);          // 순서를 지키려고 자리를 먼저 잡아둔다
+      card.hidden = true;
+      findImage(r.file, function (url) {
+        img.src = url; card.hidden = false; shown++; done();
+      }, function () {
+        card.parentNode.removeChild(card); done();
+      });
+    });
+
+    function done() {
+      if (--pending) return;
+      if (shown) sec.hidden = false;
+    }
   }
 
   function renderHistory() {
