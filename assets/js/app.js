@@ -944,12 +944,35 @@
     for (i = 0; i < cats.length; i++) {
       if ((cats[i].brandMatch || []).indexOf(brand) !== -1) return cats[i];
     }
-    var domestic = ['현대', '제네시스', '기아', '쉐보레', 'KG모빌리티', '르노코리아'];
-    var isImport = domestic.indexOf(brand) === -1;
+    var isImport = DOMESTIC.indexOf(brand) === -1;
     for (i = 0; i < cats.length; i++) {
       if (isImport ? cats[i].isImportDefault : cats[i].isDefault) return cats[i];
     }
     return null;
+  }
+
+  var DOMESTIC = ['현대', '제네시스', '기아', '쉐보레', 'KG모빌리티', '르노코리아'];
+
+  /* 수입차는 같은 차라도 미션 종류에 따라 값이 다르고, 차종 이름(320i·GLE)만으로는
+     어느 미션인지 알 수 없다. 예전에는 그래서 전부 '수입차 일반' 한 줄로 떨어졌는데,
+     그 값은 이 브랜드들 실제 정찰가와 맞지 않는다.
+     그래서 그 브랜드에 해당하는 정찰 메뉴를 전부 보여주고 고르게 한다. */
+  function findCategories(carName, spec, brand) {
+    var cats = D.menu.categories || [];
+    var hit = findCategory(carName, spec, brand);
+    // 차종·사양 글자에 미션 종류가 직접 적혀 있으면 그것 하나로 확정된다
+    var key = norm((carName || '') + ' ' + (spec || ''));
+    var exact = hit && (hit.match || []).some(function (k) { return k && key.indexOf(k) !== -1; });
+    if (exact) return [hit];
+
+    var mine = cats.filter(function (c) { return (c.brands || []).indexOf(brand) !== -1; });
+    if (mine.length) {
+      cats.forEach(function (c) {           // '수입차 일반' 은 맨 뒤에 참고로 붙인다
+        if (c.isImportDefault && mine.indexOf(c) === -1) mine.push(c);
+      });
+      return mine;
+    }
+    return hit ? [hit] : [];
   }
 
   // 같은 차종·사양인데 품번에 따라 금액이 다르면 구간으로 보여준다
@@ -1307,8 +1330,17 @@
   }
 
   function paneMenu(p) {
-    var cat = findCategory(S.car.name, S.spec, S.brand);
-    if (cat) p.appendChild(menuBlock(cat, '이 차량 미션오일 교환 정찰 가격'));
+    var cats = findCategories(S.car.name, S.spec, S.brand);
+    if (cats.length === 1) {
+      p.appendChild(menuBlock(cats[0], '이 차량 미션오일 교환 정찰 가격'));
+    } else if (cats.length > 1) {
+      var head = el('div', 'blk');
+      head.innerHTML = '<p class="blk-h">이 차량 미션오일 교환 정찰 가격</p>' +
+        '<p class="blk-s">' + esc(S.brand || '수입차') + '는 장착된 미션에 따라 값이 다릅니다. ' +
+        '차대번호를 알려주시면 어느 것인지 확인해 드립니다.</p>';
+      p.appendChild(head);
+      cats.forEach(function (c) { p.appendChild(menuBlock(c, c.name)); });
+    }
 
     var rm = remanFor(S.car.name);
     if (rm && rm.length) {
