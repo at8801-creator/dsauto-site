@@ -349,13 +349,19 @@
     revFit();
   }
 
-  // 잡고 좌우로 끌면 후기가 손가락(또는 마우스)을 따라온다. 놓으면 가까운
-  // 후기로 붙는다. 손을 떼기 전에 얼마나 왔는지 눈에 보여야 넘어가는 게
-  // 느껴지므로, 미리 넘기지 않고 끌리는 동안 계속 따라 움직인다.
-  function setupRevSwipe() {
-    var box = $('#revs'), track = $('#revTrack');
-    if (!box || !track || box.dataset.swipe) return;
-    box.dataset.swipe = '1';
+  /* ---------- 잡고 끌어 넘기기 ----------
+     후기와 작업 사진이 같은 동작을 쓴다. 끄는 동안 트랙을 손가락(또는 마우스)
+     위치만큼 옮겨 두고, 손을 떼면 goTo 가 제자리나 다음 칸으로 붙여 준다.
+     손을 떼기 전에 얼마나 왔는지 눈에 보여야 넘어가는 게 느껴지므로,
+     미리 넘기지 않고 끌리는 동안 계속 따라 움직인다.
+
+       box    손이 닿는 영역        track  실제로 움직이는 요소
+       step   한 칸의 픽셀 너비     goTo   n 번째 칸으로 붙이는 함수
+       at     지금 몇 번째인가      last   마지막 칸 번호
+       label  화면 낭독기용 이름                                            */
+  function attachDrag(box, track, o) {
+    if (!box || !track || box.dataset.drag) return;
+    box.dataset.drag = '1';
 
     var id = null;        // 지금 잡고 있는 손가락 · 마우스
     var x0 = 0, y0 = 0;   // 잡은 자리
@@ -363,9 +369,15 @@
     var dx = 0;
     var drag = null;      // null 아직 모름 · true 좌우로 끄는 중 · false 세로 스크롤
 
+    // 트랙이 % 로 놓여 있을 수도 있고 넘어가는 중일 수도 있다.
+    // 그래서 지금 실제로 그려진 위치를 잰다. 잡은 자리에서 이어져야 한다.
     function trackX() {
-      var m = /translateX\((-?[\d.]+)px\)/.exec(track.style.transform || '');
-      return m ? parseFloat(m[1]) : 0;
+      var t = window.getComputedStyle(track).transform;
+      if (!t || t === 'none') return 0;
+      var m = /matrix(3d)?\(([^)]+)\)/.exec(t);
+      if (!m) return 0;
+      var v = m[2].split(',');
+      return parseFloat(m[1] ? v[12] : v[4]) || 0;
     }
 
     box.addEventListener('pointerdown', function (e) {
@@ -375,7 +387,7 @@
       base = trackX(); dx = 0; drag = null;
     });
 
-    // 끌다가 손가락이 후기 칸을 벗어나도 놓치지 않도록 window 에서 받는다.
+    // 끌다가 손가락이 칸을 벗어나도 놓치지 않도록 window 에서 받는다.
     window.addEventListener('pointermove', function (e) {
       if (e.pointerId !== id) return;
       dx = e.clientX - x0;
@@ -392,8 +404,7 @@
       e.preventDefault();
       // 첫 장에서 더 오른쪽, 마지막 장에서 더 왼쪽으로 끌면 덜 따라온다.
       // 더 없다는 것을 손으로 느끼게 하려는 것이다.
-      var end = (S.revIdx <= 0 && dx > 0) ||
-                (S.revIdx >= revShown.length - 1 && dx < 0);
+      var end = (o.at() <= 0 && dx > 0) || (o.at() >= o.last() && dx < 0);
       track.style.transform =
         'translateX(' + Math.round(base + (end ? dx * 0.3 : dx)) + 'px)';
     });
@@ -408,19 +419,29 @@
 
       // 40px 넘게 끌었으면 넘긴다. 짧게 툭 튕겨도 넘어가야 손맛이 난다.
       // 칸이 아주 좁을 때만 한 칸의 4분의 1로 낮춘다.
-      var w = (revShown[S.revIdx] || {}).offsetWidth || 1;
+      var w = o.step() || 1;
       var far = Math.abs(dx) > Math.min(40, w * 0.25);
-      revGo(S.revIdx + (far ? (dx < 0 ? 1 : -1) : 0));
+      o.goTo(o.at() + (far ? (dx < 0 ? 1 : -1) : 0));
     }
     window.addEventListener('pointerup', release);
     window.addEventListener('pointercancel', release);
 
     box.tabIndex = 0;
     box.setAttribute('role', 'group');
-    box.setAttribute('aria-label', '손님 후기');
+    box.setAttribute('aria-label', o.label);
     box.addEventListener('keydown', function (e) {
-      if (e.key === 'ArrowLeft') { e.preventDefault(); revGo(S.revIdx - 1); }
-      if (e.key === 'ArrowRight') { e.preventDefault(); revGo(S.revIdx + 1); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); o.goTo(o.at() - 1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); o.goTo(o.at() + 1); }
+    });
+  }
+
+  function setupRevSwipe() {
+    attachDrag($('#revs'), $('#revTrack'), {
+      step: function () { return (revShown[S.revIdx] || {}).offsetWidth; },
+      goTo: revGo,
+      at: function () { return S.revIdx; },
+      last: function () { return revShown.length - 1; },
+      label: '손님 후기'
     });
   }
 
@@ -1607,7 +1628,7 @@
     items.forEach(function (g, i) {
       var it = el('div', 'gal-item');
       it.innerHTML = '<div class="gal-ph"><span class="num">' + esc(g.step) + '</span>' +
-        '<img alt="' + esc(g.title) + '" loading="lazy" decoding="async">' +
+        '<img alt="' + esc(g.title) + '" loading="lazy" decoding="async" draggable="false">' +
         '<span class="ph-txt" hidden>사진 준비 중</span></div>' +
         '<div class="gal-txt"><div class="t">' + esc(g.title) + '</div>' +
         '<div class="d">' + esc(g.desc) + '</div></div>';
@@ -1667,32 +1688,14 @@
     $('#galNext').disabled = S.galIdx >= max;
   }
 
-  // 손가락으로 밀어서 넘기기. 휴대폰에서 34px 화살표만 누르게 하는 것은 무리다.
+  // 잡고 끌어서 넘기기. 휴대폰에서 34px 화살표만 누르게 하는 것은 무리다.
   function setupGalSwipe() {
-    var gal = $('.gal');
-    if (!gal || gal.dataset.swipe) return;
-    gal.dataset.swipe = '1';
-    var x0 = null, y0 = null;
-    gal.addEventListener('touchstart', function (e) {
-      var t = e.touches[0]; x0 = t.clientX; y0 = t.clientY;
-    }, { passive: true });
-    gal.addEventListener('touchend', function (e) {
-      if (x0 === null) return;
-      var t = e.changedTouches[0];
-      var dx = t.clientX - x0, dy = t.clientY - y0;
-      x0 = null;
-      // 세로로 더 많이 움직였으면 페이지를 스크롤하려던 것이므로 건드리지 않는다
-      if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
-      galGo(S.galIdx + (dx < 0 ? 1 : -1));
-    }, { passive: true });
-
-    // 키보드로도 넘어가야 한다
-    gal.tabIndex = 0;
-    gal.setAttribute('role', 'group');
-    gal.setAttribute('aria-label', '작업 과정 사진');
-    gal.addEventListener('keydown', function (e) {
-      if (e.key === 'ArrowLeft') { e.preventDefault(); galGo(S.galIdx - 1); }
-      if (e.key === 'ArrowRight') { e.preventDefault(); galGo(S.galIdx + 1); }
+    attachDrag($('.gal'), $('#galTrack'), {
+      step: function () { var it = $('.gal-item'); return it ? it.offsetWidth : 0; },
+      goTo: galGo,
+      at: function () { return S.galIdx; },
+      last: function () { return galPages() - 1; },
+      label: '작업 과정 사진'
     });
   }
 

@@ -402,7 +402,14 @@ a { color: inherit; }
 .ld-d { margin-top: 5px; font-size: 13.5px; color: var(--ink-2); line-height: 1.6; }
 
 /* 갤러리 */
-.gal { margin-top: 22px; overflow: hidden; border-radius: var(--r); }
+/* 세로 스크롤은 브라우저에 맡기고 좌우 끌기만 우리가 받는다.
+   후기 슬라이드(.revs)와 같은 방식이다. */
+.gal {
+  margin-top: 22px; overflow: hidden; border-radius: var(--r);
+  touch-action: pan-y; cursor: grab;
+}
+.gal.grabbing { cursor: grabbing; }
+.gal.grabbing, .gal.grabbing * { user-select: none; -webkit-user-select: none; }
 .gal-track { display: flex; transition: transform .34s cubic-bezier(.4,.1,.2,1); }
 /* 칸 사이 여백은 '왼쪽'에 둔다. 오른쪽에 두면 마지막 사진 뒤로 다음 사진이
    반올림 오차만큼(1px) 비집고 나온다. 왼쪽에 두면 그 오차가 투명한 여백에 묻힌다. */
@@ -411,7 +418,7 @@ a { color: inherit; }
   position: relative; aspect-ratio: 4 / 3; border-radius: var(--r);
   background: #e9ecf1; overflow: hidden; display: grid; place-items: center;
 }
-.gal-ph img { width: 100%; height: 100%; object-fit: cover; }
+.gal-ph img { width: 100%; height: 100%; object-fit: cover; -webkit-user-drag: none; }
 .gal-ph .ph-txt { color: #98a1af; font-size: 12.5px; text-align: center; padding: 0 20px; }
 .gal-ph .num {
   position: absolute; left: 12px; top: 12px; background: var(--brand); color: #fff;
