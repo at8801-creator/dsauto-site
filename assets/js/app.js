@@ -878,10 +878,6 @@
     후진불량: '후진이 안 되면 주차할 때마다 곤란하셨을 겁니다.',
     주행불가: '차가 움직이지 않는 상황이면 우선 견인 상담부터 도와드립니다.'
   };
-  // 그 차종 실사례가 이만큼 쌓여야 금액 구간을 보여준다.
-  // 미달이면 남의 차 평균으로 때우지 않고 '점검 후 안내' 로 넘긴다.
-  var MIN_CAR_N = 20;
-
   function situLabels() {
     return S.situ.map(function (id) {
       var f = ((D.symptoms || {}).situations || []).filter(function (x) { return x.id === id; })[0];
@@ -913,17 +909,6 @@
       .map(function (t) { return { type: t, ratio: acc[t] / used }; })
       .filter(function (x) { return x.ratio > 0.01 && LABEL[x.type]; })
       .sort(function (a, b) { return b.ratio - a.ratio; });
-  }
-
-  // 오직 '그 차종의 실제 청구 내역' 만 쓴다.
-  // 예전에는 사례가 모자라면 증상 전체 평균으로 대체했는데, 그 표본이
-  // 대부분 국산차라 수입차에 국산 금액이 그대로 찍히는 문제가 있었다.
-  function pickBand(type) {
-    var byCar = D.cases.byCar[S.car.name];
-    if (byCar && byCar[type] && byCar[type].n >= MIN_CAR_N) {
-      return { b: byCar[type], src: S.car.name + ' 실사례 ' + byCar[type].n + '건' };
-    }
-    return null;
   }
 
   function findCategory(carName, spec, brand) {
@@ -1146,14 +1131,10 @@
       eyebrow: '자가진단 결과',
       narrow: true,                  // 읽는 글이라 본문 폭을 좁게 둔다
       title: function () { return S.car ? S.car.name + (S.spec ? ' · ' + S.spec : '') : '진단 결과'; },
-      // 탭 순서 주의: '정찰 가격'이 '예상 비용'보다 앞이다.
-      // 예상 비용은 그 차종 실사례가 20건 넘게 쌓여야 나오는데 해당 차종이 많지 않다.
-      // 정찰 가격은 대부분의 차종에 값이 있으므로, 손님이 먼저 만나야 하는 쪽은 이쪽이다.
       tabs: function () {
         return [
           { id: 'diag', label: '진단', render: paneDiag },
           { id: 'menu', label: '정찰 가격', render: paneMenu },
-          { id: 'cost', label: '실제 청구액', render: paneCost },
           { id: 'case', label: '실제 사례', render: paneCase },
           { id: 'ask', label: '문의하기', render: paneAsk }
         ];
@@ -1220,86 +1201,6 @@
     blk.appendChild(el('p', 'disclaimer',
       '증상이 같아도 분해 후 확인되는 상태에 따라 실제 수리는 달라집니다. 위 비중은 확률이 아니라 과거 실적입니다.'));
     p.appendChild(blk);
-  }
-
-  function paneCost(p) {
-    var mix = computeMix();
-    var order = mix.length ? mix.map(function (m) { return m.type; })
-      : ['미션오일교환', '밸브바디정비', '재제조미션교환'];
-    var maxP75 = 1;
-    order.forEach(function (t) { var r = pickBand(t); if (r) maxP75 = Math.max(maxP75, r.b.p75); });
-
-    // 이 차종 실사례가 모자라면 금액을 지어내지 않는다.
-    // 다만 여기서 끝내면 막다른 길이 된다. 정찰 가격은 대부분의 차종에 값이 있으므로
-    // 그쪽으로 보내주는 것이 이 화면의 가장 중요한 역할이다.
-    var usable = order.filter(function (t) { return pickBand(t); });
-    if (!usable.length) {
-      var hasMenu = !!(findCategory(S.car.name, S.spec, S.brand) ||
-                       (remanFor(S.car.name) || []).length || pricesFor(S.car.name));
-      var none = el('div', 'blk');
-      none.innerHTML =
-        '<p class="blk-h">이 차종은 실제 청구 사례가 아직 모입니다</p>' +
-        '<p class="blk-s">같은 증상이라도 사양에 따라 차이가 커서, 사례가 충분히 쌓이기 전에는 ' +
-        '금액대를 말씀드리지 않습니다.' +
-        (hasMenu ? ' 대신 <b>정해진 정찰 가격</b>은 지금 바로 확인하실 수 있습니다.' : '') + '</p>';
-      var col = el('div', 'cta-col');
-      if (hasMenu) {
-        var go = el('button', 'btn cta ask');
-        go.type = 'button';
-        go.textContent = '이 차량 정찰 가격 보기';
-        go.addEventListener('click', function () {
-          showTab(SHEETS.result.tabs(), 'menu');
-          track('cost_to_menu', { car: S.car.name });
-        });
-        col.appendChild(go);
-      }
-      // 예약 버튼은 아래 고정 바에 이미 있다. 정찰 가격으로 보내는 버튼이 있을 때
-      // 초록 예약 버튼을 또 놓으면 같은 화면에 같은 버튼이 두 개가 된다.
-      var url = hasMenu ? '' : (((CFG.links || {}).naverReserve) || '');
-      if (url) {
-        var a = el('a', 'btn cta naver gtm-cta');
-        a.href = url; a.target = '_blank'; a.rel = 'noopener';
-        a.textContent = '무상 점검 예약하기';
-        a.setAttribute('data-gtm-event', 'naver_reserve_click');
-        a.setAttribute('data-gtm-location', 'cost-nodata');
-        col.appendChild(a);
-      }
-      none.appendChild(col);
-      p.appendChild(none);
-      p.appendChild(el('p', 'disclaimer',
-        '차종별로 실제 청구된 내역이 쌓인 경우에만 금액대를 보여드립니다. ' +
-        '근거 없는 추정 금액은 안내하지 않습니다.'));
-      return;
-    }
-
-    var head = el('div', 'blk');
-    head.innerHTML = '<p class="blk-h">수리 방법별 실제 청구액</p>' +
-      '<p class="blk-s">견적서가 아니라 ' + won((D.cases.meta || {})['가격있는사례']) +
-      '건의 실제 청구 내역에서 뽑은 금액대입니다.</p>';
-    p.appendChild(head);
-
-    order.forEach(function (t, i) {
-      var r = pickBand(t);
-      if (!r) return;
-      var b = r.b;
-      var left = (b.p25 / maxP75) * 100, width = ((b.p75 - b.p25) / maxP75) * 100;
-      var card = el('div', 'est' + (i === 0 ? ' top' : ''));
-      card.innerHTML =
-        '<div class="est-top"><span class="est-rank">' +
-        (i === 0 ? '가장 많은 경우' : i + 1 + '순위') + '</span>' +
-        '<span class="est-name">' + esc(LABEL[t]) + '</span></div>' +
-        '<div class="est-range">' + man(b.p25) + ' ~ ' + man(b.p75) + '원</div>' +
-        '<div class="est-mid">절반이 이 구간이며 중간값은 ' + won(b.p50) + '원입니다. ' +
-        '가장 적은 경우 ' + man(b.min) + '원, 가장 많은 경우 ' + man(b.max) + '원.</div>' +
-        '<div class="est-bar"><i style="left:' + left.toFixed(1) + '%;width:' +
-        Math.max(width, 2).toFixed(1) + '%"></i></div>' +
-        '<div class="est-src">근거: ' + esc(r.src) + '</div>';
-      p.appendChild(card);
-    });
-
-    p.appendChild(el('p', 'disclaimer',
-      '위 금액은 실제로 청구된 금액의 분포이며 견적서가 아닙니다. ' +
-      '같은 증상이라도 분해 후 확인되는 상태에 따라 달라집니다. 정확한 금액은 무상 점검 후 알려드립니다.'));
   }
 
   /* ---------------- 내 차 수리비 찾기 ---------------- */
@@ -1376,7 +1277,7 @@
       p.appendChild(mb);
     }
 
-    if (!cat && !(rm && rm.length) && !pr) {
+    if (!cats.length && !(rm && rm.length) && !pr) {
       p.appendChild(el('p', 'pane-empty', '이 차량은 정찰 가격이 등록되어 있지 않습니다. 상담으로 안내드립니다.'));
     }
 

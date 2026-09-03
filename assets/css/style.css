@@ -603,18 +603,6 @@ a { color: inherit; }
 .cb-row:first-of-type .cb-pct { color: var(--brand); }
 .cb-note { font-size: 12px; color: var(--ink-3); }
 
-.est { border: 1px solid var(--line); border-radius: var(--r); padding: 15px 14px; background: #fff; margin-bottom: 10px; }
-.est.top { border-color: var(--brand); background: var(--brand-50); }
-.est-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.est-rank { font-size: 10.5px; font-weight: 800; color: #fff; background: var(--ink-3); padding: 3px 8px; border-radius: 999px; }
-.est.top .est-rank { background: var(--brand); }
-.est-name { font-size: 15px; font-weight: 800; }
-.est-range { margin-top: 8px; font-size: 21px; font-weight: 800; letter-spacing: -.03em; }
-.est-mid { margin-top: 4px; font-size: 12.5px; color: var(--ink-2); }
-.est-src { margin-top: 7px; font-size: 11.5px; color: var(--ink-3); }
-.est-bar { margin-top: 9px; height: 6px; border-radius: 999px; background: var(--line-2); position: relative; }
-.est-bar i { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: var(--navy); }
-.est.top .est-bar i { background: var(--brand); }
 
 .mrow { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px dashed var(--line-2); font-size: 14px; }
 .mrow:last-child { border-bottom: 0; }
