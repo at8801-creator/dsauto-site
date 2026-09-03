@@ -709,7 +709,14 @@ a { color: inherit; }
   --rev-w: 320px;
   margin: 22px -20px 0; overflow: hidden;
   transition: height .34s cubic-bezier(.4,.1,.2,1);
+  /* 세로 스크롤은 브라우저에 맡기고 좌우 끌기만 우리가 받는다.
+     이걸 안 주면 손가락으로 옆으로 끌 때 화면이 위아래로 흔들린다. */
+  touch-action: pan-y;
+  cursor: grab;
 }
+/* 끄는 동안 글자·사진이 선택되면 파랗게 반전돼 지저분해진다 */
+.revs.grabbing { cursor: grabbing; }
+.revs.grabbing, .revs.grabbing * { user-select: none; -webkit-user-select: none; }
 /* align-items 를 안 주면 칸들이 가장 긴 후기 높이로 늘어난다 */
 .rev-track {
   display: flex; align-items: flex-start;
@@ -728,7 +735,7 @@ a { color: inherit; }
   box-shadow: 0 2px 10px rgba(20,25,35,.05);
 }
 .rev-item.on .rev { box-shadow: 0 6px 22px rgba(20,25,35,.12); }
-.rev img { display: block; width: 100%; height: auto; }
+.rev img { display: block; width: 100%; height: auto; -webkit-user-drag: none; }
 
 @media (min-width: 700px) {
   .revs { --rev-w: 434px; max-width: 660px; margin: 22px auto 0; }

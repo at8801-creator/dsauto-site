@@ -281,6 +281,7 @@
       var img = document.createElement('img');
       img.alt = r.alt || ('대성오토 손님 후기 ' + (i + 1));
       img.decoding = 'async';
+      img.draggable = false;   // 사진을 잡으면 브라우저가 이미지를 끌어내려 한다
       card.appendChild(img);
       item.appendChild(card);
       track.appendChild(item);      // 순서를 지키려고 자리를 먼저 잡아둔다
@@ -348,22 +349,71 @@
     revFit();
   }
 
+  // 잡고 좌우로 끌면 후기가 손가락(또는 마우스)을 따라온다. 놓으면 가까운
+  // 후기로 붙는다. 손을 떼기 전에 얼마나 왔는지 눈에 보여야 넘어가는 게
+  // 느껴지므로, 미리 넘기지 않고 끌리는 동안 계속 따라 움직인다.
   function setupRevSwipe() {
-    var box = $('#revs');
-    if (!box || box.dataset.swipe) return;
+    var box = $('#revs'), track = $('#revTrack');
+    if (!box || !track || box.dataset.swipe) return;
     box.dataset.swipe = '1';
-    var x0 = null, y0 = null;
-    box.addEventListener('touchstart', function (e) {
-      var t = e.touches[0]; x0 = t.clientX; y0 = t.clientY;
-    }, { passive: true });
-    box.addEventListener('touchend', function (e) {
-      if (x0 === null) return;
-      var t = e.changedTouches[0];
-      var dx = t.clientX - x0, dy = t.clientY - y0;
-      x0 = null;
-      if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
-      revGo(S.revIdx + (dx < 0 ? 1 : -1));
-    }, { passive: true });
+
+    var id = null;        // 지금 잡고 있는 손가락 · 마우스
+    var x0 = 0, y0 = 0;   // 잡은 자리
+    var base = 0;         // 잡기 직전의 track 위치
+    var dx = 0;
+    var drag = null;      // null 아직 모름 · true 좌우로 끄는 중 · false 세로 스크롤
+
+    function trackX() {
+      var m = /translateX\((-?[\d.]+)px\)/.exec(track.style.transform || '');
+      return m ? parseFloat(m[1]) : 0;
+    }
+
+    box.addEventListener('pointerdown', function (e) {
+      if (id !== null || e.button) return;   // 두 번째 손가락 · 오른쪽 클릭은 무시
+      id = e.pointerId;
+      x0 = e.clientX; y0 = e.clientY;
+      base = trackX(); dx = 0; drag = null;
+    });
+
+    // 끌다가 손가락이 후기 칸을 벗어나도 놓치지 않도록 window 에서 받는다.
+    window.addEventListener('pointermove', function (e) {
+      if (e.pointerId !== id) return;
+      dx = e.clientX - x0;
+      var dy = e.clientY - y0;
+
+      if (drag === null) {
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;   // 아직 방향을 모른다
+        drag = Math.abs(dx) > Math.abs(dy);
+        if (!drag) { id = null; return; }                   // 세로면 스크롤에 양보한다
+        track.style.transition = 'none';
+        box.classList.add('grabbing');
+      }
+
+      e.preventDefault();
+      // 첫 장에서 더 오른쪽, 마지막 장에서 더 왼쪽으로 끌면 덜 따라온다.
+      // 더 없다는 것을 손으로 느끼게 하려는 것이다.
+      var end = (S.revIdx <= 0 && dx > 0) ||
+                (S.revIdx >= revShown.length - 1 && dx < 0);
+      track.style.transform =
+        'translateX(' + Math.round(base + (end ? dx * 0.3 : dx)) + 'px)';
+    });
+
+    function release(e) {
+      if (e.pointerId !== id) return;
+      id = null;
+      if (drag !== true) return;
+      drag = null;
+      box.classList.remove('grabbing');
+      track.style.transition = '';
+
+      // 40px 넘게 끌었으면 넘긴다. 짧게 툭 튕겨도 넘어가야 손맛이 난다.
+      // 칸이 아주 좁을 때만 한 칸의 4분의 1로 낮춘다.
+      var w = (revShown[S.revIdx] || {}).offsetWidth || 1;
+      var far = Math.abs(dx) > Math.min(40, w * 0.25);
+      revGo(S.revIdx + (far ? (dx < 0 ? 1 : -1) : 0));
+    }
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
 
     box.tabIndex = 0;
     box.setAttribute('role', 'group');
