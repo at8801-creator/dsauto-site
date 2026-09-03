@@ -30,7 +30,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800&display=swap"
       media="print" onload="this.media='all';this.onload=null">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800&display=swap"></noscript>
-<link rel="stylesheet" href="assets/css/style.css?v=1788335871">
+<link rel="stylesheet" href="assets/css/style.css?v=1788396872">
 </head>
 <body>
 
@@ -59,7 +59,6 @@
       <div class="nav-i">
         <button type="button" class="nav-t">수리비 확인</button>
         <div class="nav-d">
-          <a class="nav-lead" href="#" data-open-sheet="quote">내 차 수리비 확인</a>
           <a href="#diag" data-nav-start>증상으로 자가진단</a>
           <p class="nav-sep">전체 가격표</p>
           <a class="nav-sub" href="#" data-open-sheet="price" data-tab="oil">미션오일</a>
@@ -99,7 +98,6 @@
   </div>
 
   <div class="hd-mobile" id="hdMobile" hidden>
-    <a class="lead" href="#" data-open-sheet="quote">내 차 수리비 확인</a>
     <a href="#diag" data-nav-start>증상으로 자가진단</a>
     <a href="#service">수리 방법 4단계</a>
     <a href="#proc">작업 과정</a>
@@ -194,18 +192,6 @@
 <!-- ══════════════════════════ 타일 ══════════════════════════ -->
 <section class="tiles-sec">
   <div class="wrap">
-    <!-- 손님이 가장 먼저 만나야 하는 길은 '내 차 하나'다.
-         전 차종 표는 지우지 않되 아래 줄로 내려 위계를 낮춘다. -->
-    <button type="button" class="quote-cta" data-open-sheet="quote">
-      <span class="quote-cta-ico" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M15.8 15.8L20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      </span>
-      <span class="quote-cta-txt">
-        <span class="quote-cta-t">내 차 수리비 찾기</span>
-        <span class="quote-cta-s">차종만 고르시면 그 차의 정찰 가격만 모아서 보여드립니다</span>
-      </span>
-      <span class="quote-cta-go" aria-hidden="true">→</span>
-    </button>
     <div class="tiles-sub">
       <span class="tiles-sub-l">전체 가격표</span>
       <a href="#" data-open-sheet="price" data-tab="oil">미션오일</a>
@@ -458,8 +444,8 @@
 
 <!-- defer: 세 파일 모두 문서를 다 읽은 뒤에 실행된다. 적힌 순서는 그대로 지켜지므로
      data -> config -> app 순서가 보장되고, 화면이 먼저 그려져 첫 화면이 빨라진다. -->
-<script defer src="data/data.js?v=1788335901"></script>
+<script defer src="data/data.js?v=1788396888"></script>
 <script defer src="config.js?v=1788309200"></script>
-<script defer src="assets/js/app.js?v=1788335889"></script>
+<script defer src="assets/js/app.js?v=1788396827"></script>
 </body>
 </html>

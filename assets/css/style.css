@@ -349,21 +349,6 @@ a { color: inherit; }
 .tiles-sec { background: var(--bg-2); padding: 24px 0 22px; border-bottom: 1px solid var(--line); }
 
 /* 손님이 가장 먼저 만나야 하는 길. 여기만 눈에 띄면 된다. */
-.quote-cta {
-  width: 100%; display: flex; align-items: center; gap: 14px; text-align: left;
-  padding: 18px 18px; cursor: pointer;
-  background: #fff; border: 1.5px solid var(--brand); border-radius: var(--r);
-  box-shadow: var(--sh-sm);
-  transition: box-shadow .15s, transform .1s, background .15s;
-}
-.quote-cta:hover { background: var(--brand-50); box-shadow: var(--sh); }
-.quote-cta:active { transform: scale(.995); }
-.quote-cta-ico { flex: none; color: var(--brand); display: grid; place-items: center; }
-.quote-cta-ico svg { width: 30px; height: 30px; }
-.quote-cta-txt { display: grid; gap: 3px; min-width: 0; }
-.quote-cta-t { font-size: 17px; font-weight: 800; color: var(--ink); }
-.quote-cta-s { font-size: 13px; color: var(--ink-2); }
-.quote-cta-go { flex: none; margin-left: auto; color: var(--brand); font-size: 20px; font-weight: 700; }
 
 /* 전 차종 표는 지우지 않는다. 다만 한 줄 아래로 내려 위계를 낮춘다. */
 .tiles-sub {
@@ -874,12 +859,6 @@ a { color: inherit; }
 }
 
 /* ══════════════════════════ 내 차 수리비 찾기 ══════════════════════════ */
-.qp-back {
-  margin-bottom: 12px; padding: 8px 12px; border: 1px solid var(--line);
-  border-radius: 999px; background: #fff; cursor: pointer;
-  font-size: 13px; font-weight: 700; color: var(--ink-2);
-}
-.qp-back:hover { border-color: var(--brand); color: var(--brand); }
 
 .qp-search { margin-bottom: 10px; }
 .qp-input {
@@ -905,12 +884,6 @@ a { color: inherit; }
   -webkit-overflow-scrolling: touch;
 }
 
-.qp-more {
-  margin-top: 4px; width: 100%; padding: 10px; cursor: pointer;
-  border: 1px dashed var(--line); border-radius: var(--r-sm); background: #fff;
-  font-size: 13px; font-weight: 700; color: var(--ink-2);
-}
-.qp-more:hover { border-color: var(--brand); color: var(--brand); }
 
 /* 가격 바로 아래 붙는 실제 작업 사례는 가격표와 구분되어야 한다 */
 .blk.recent { background: var(--bg-2); }

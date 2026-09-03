@@ -1027,7 +1027,7 @@
     $('#sheetTitle').textContent = typeof conf.title === 'function' ? conf.title() : conf.title;
     $('#sheetRestart').hidden = kind !== 'result';
     $('#sheetAsk').textContent =
-      (kind === 'result' || (kind === 'quote' && S.car)) ? '문의하기' : '상담 문의';
+      kind === 'result' ? '문의하기' : '상담 문의';
 
     var tabs = conf.tabs();
     var bar = $('#sheetTabs');
@@ -1134,24 +1134,6 @@
           { id: 'case', label: '실제 사례', render: paneCase },
           { id: 'ask', label: '문의하기', render: paneAsk }
         ];
-      }
-    },
-
-    /* ===== 내 차 수리비 찾기 =====
-       전 차종 표를 펼치는 대신, 차 한 대를 고르게 하고 그 차 값만 보여준다.
-       차를 고르기 전에는 탭이 없다(고를 것이 하나뿐이므로). */
-    quote: {
-      eyebrow: '내 차 수리비 찾기',
-      narrow: true,
-      title: function () {
-        return S.car ? S.car.name + (S.spec ? ' · ' + S.spec : '') : '어떤 차를 타고 계신가요?';
-      },
-      tabs: function () {
-        if (!S.car) return [{ id: 'pick', label: '차종 선택', render: paneQuotePick }];
-        var t = [{ id: 'menu', label: '정찰 가격', render: paneMenu }];
-        if (samplesForCar().length) t.push({ id: 'case', label: '실제 사례', render: paneQuoteCase });
-        t.push({ id: 'ask', label: '문의하기', render: paneAsk });
-        return t;
       }
     },
 
@@ -1305,154 +1287,6 @@
     try { renderBrands(); renderCars(); renderSpecs(); syncNav(); } catch (e) { /* 무시 */ }
   }
 
-  function paneQuotePick(p) {
-    var pick = null;                  // 확정 전까지는 S.car 를 건드리지 않는다
-    var brand = null;
-
-    function commit(c, b, spec) {
-      S.car = c; S.brand = b; S.spec = spec || null;
-      syncHeroPicker();
-      track('quote_car_select', { brand: b, car: c.name, spec: spec || '' });
-      openSheet('quote', 'menu');     // 같은 패널을 가격 화면으로 다시 그린다
-    }
-
-    function draw() {
-      p.innerHTML = '';
-
-      /* --- 사양 고르는 단계 --- */
-      if (pick && pick.specs && pick.specs.length) {
-        var back = el('button', 'qp-back');
-        back.type = 'button';
-        back.textContent = '\u2039 다른 차 선택';
-        back.addEventListener('click', function () { pick = null; draw(); });
-        p.appendChild(back);
-
-        var sb = el('div', 'blk');
-        sb.innerHTML = '<p class="blk-h">' + esc(pick.name) + ' \u2014 사양을 골라주세요</p>' +
-          '<p class="blk-s">사양에 따라 정찰 가격이 다릅니다. 모르시면 건너뛰셔도 됩니다.</p>';
-        var chips = el('div', 'chips sm');
-        var chosen = null;
-        pick.specs.slice(0, 24).forEach(function (sp) {
-          var b = el('button', 'chip');
-          b.type = 'button';
-          b.textContent = sp;
-          b.addEventListener('click', function () {
-            chosen = (chosen === sp) ? null : sp;
-            Array.prototype.forEach.call(chips.children, function (x) {
-              x.className = 'chip' + (x.textContent === chosen ? ' on' : '');
-            });
-          });
-          chips.appendChild(b);
-        });
-        sb.appendChild(chips);
-        p.appendChild(sb);
-
-        var col = el('div', 'cta-col');
-        var go = el('button', 'btn cta ask');
-        go.type = 'button';
-        go.textContent = '이 차량 정찰 가격 보기';
-        go.addEventListener('click', function () { commit(pick, brand, chosen); });
-        col.appendChild(go);
-        p.appendChild(col);
-        return;
-      }
-
-      /* --- 차종 고르는 단계 --- */
-      var head = el('div', 'blk');
-      head.innerHTML = '<p class="blk-h">차종을 고르시면 그 차 가격만 보여드립니다</p>' +
-        '<p class="blk-s">미션오일 \u00b7 재제조 미션 \u00b7 경정비 정찰 가격을 한 번에 모아서 보여드립니다.</p>';
-      p.appendChild(head);
-
-      var sw = el('div', 'qp-search');
-      var inp = el('input', 'qp-input');
-      inp.type = 'search';
-      inp.placeholder = '차종 검색 (예: 그랜저, 모하비)';
-      inp.setAttribute('autocomplete', 'off');
-      inp.setAttribute('enterkeyhint', 'search');
-      sw.appendChild(inp);
-      p.appendChild(sw);
-
-      var strip = el('div', 'qp-brands');
-      p.appendChild(strip);
-
-      var list = el('div', 'qp-list');
-      list.setAttribute('role', 'listbox');
-      list.setAttribute('aria-label', '차종 목록');
-      p.appendChild(list);
-
-      function pool() {
-        var q = norm(inp.value), out = [];
-        if (q) {
-          D.catalog.forEach(function (grp) {
-            grp.cars.forEach(function (c) {
-              var k = norm(c.name), at = k.indexOf(q);
-              if (at === -1) return;
-              out.push({ car: c, brand: grp.brand, rank: (k === q ? 0 : (at === 0 ? 1 : 2)), len: k.length });
-            });
-          });
-          out.sort(function (a, b) {
-            return a.rank - b.rank || a.len - b.len ||
-              (a.car.hasPrice === b.car.hasPrice ? 0 : (a.car.hasPrice ? -1 : 1));
-          });
-        } else if (brand) {
-          var g = D.catalog.filter(function (x) { return x.brand === brand; })[0];
-          if (g) g.cars.forEach(function (c) { out.push({ car: c, brand: g.brand }); });
-        } else {
-          D.catalog.slice(0, 3).forEach(function (grp) {
-            grp.cars.slice(0, 14).forEach(function (c) { out.push({ car: c, brand: grp.brand }); });
-          });
-        }
-        return out.slice(0, 400);
-      }
-
-      function drawBrands() {
-        strip.innerHTML = '';
-        D.catalog.forEach(function (grp) {
-          if (!grp.cars.length) return;
-          var b = el('button', 'brand-b' + (brand === grp.brand ? ' on' : ''));
-          b.type = 'button';
-          b.textContent = grp.brand;
-          b.addEventListener('click', function () {
-            brand = (brand === grp.brand) ? null : grp.brand;
-            inp.value = '';
-            drawBrands(); drawList();
-          });
-          strip.appendChild(b);
-        });
-      }
-
-      function drawList() {
-        list.innerHTML = '';
-        var arr = pool();
-        if (!arr.length) {
-          list.appendChild(el('div', 'car-empty',
-            '찾는 차종이 없으면 전화나 카톡으로 물어보셔도 됩니다.'));
-          return;
-        }
-        var showBrand = !!norm(inp.value) || !brand;
-        arr.forEach(function (x) {
-          var c = x.car;
-          var b = el('button', 'car-i');
-          b.type = 'button';
-          b.setAttribute('role', 'option');
-          b.innerHTML = '<span>' + esc(c.name) +
-            (showBrand ? ' <span class="bd">' + esc(x.brand) + '</span>' : '') + '</span>' +
-            (c.hasPrice ? '<span class="tag">가격 확인</span>' : '<span class="tag gray">상담 안내</span>');
-          b.addEventListener('click', function () {
-            if (c.specs && c.specs.length) { pick = c; brand = x.brand; draw(); }
-            else commit(c, x.brand, null);
-          });
-          list.appendChild(b);
-        });
-      }
-
-      inp.addEventListener('input', function () { drawList(); });
-      drawBrands(); drawList();
-    }
-
-    draw();
-  }
-
   // 증상과 상관없이 '그 차종' 사례만 고른다.
   // 결과 화면의 사례 탭은 증상으로도 거르지만, 여기서는 아직 증상을 묻지 않았다.
   function samplesForCar(limit) {
@@ -1461,16 +1295,6 @@
       return norm(x.car) === norm(S.car.name);
     });
     return limit ? out.slice(0, limit) : out;
-  }
-
-  function paneQuoteCase(p) {
-    var list = samplesForCar(12);
-    var blk = el('div', 'blk');
-    blk.innerHTML = '<p class="blk-h">' + esc(S.car.name) + ' 최근 수리 사례</p>' +
-      '<p class="blk-s">고객 정보는 담지 않고 차종 \u00b7 주행거리 \u00b7 증상 \u00b7 청구액만 표시합니다.</p>';
-    if (!list.length) blk.appendChild(el('p', 'pane-empty', '표시할 사례가 없습니다.'));
-    list.forEach(function (x) { blk.appendChild(sampleRow(x)); });
-    p.appendChild(blk);
   }
 
   function sampleRow(s) {
@@ -1483,20 +1307,6 @@
   }
 
   function paneMenu(p) {
-    // 수리비 찾기로 들어온 손님은 차를 잘못 고를 수 있다. 되돌아갈 길을 위에 둔다.
-    // (자가진단 결과로 들어온 경우에는 아래 '다시 진단' 버튼이 그 역할을 한다)
-    if (S.sheet === 'quote') {
-      var back = el('button', 'qp-back');
-      back.type = 'button';
-      back.textContent = '‹ 다른 차 선택';
-      back.addEventListener('click', function () {
-        S.car = null; S.spec = null; S.brand = null;
-        syncHeroPicker();
-        openSheet('quote', 'pick');
-      });
-      p.appendChild(back);
-    }
-
     var cat = findCategory(S.car.name, S.spec, S.brand);
     if (cat) p.appendChild(menuBlock(cat, '이 차량 미션오일 교환 정찰 가격'));
 
@@ -1546,13 +1356,6 @@
       rb.innerHTML = '<p class="blk-h">' + esc(S.car.name) + ' 최근 실제 작업</p>' +
         '<p class="blk-s">위 정찰 가격과 별개로, 실제로 청구된 내역입니다.</p>';
       recent.forEach(function (x) { rb.appendChild(sampleRow(x)); });
-      if (samplesForCar().length > recent.length && S.sheet === 'quote') {
-        var more = el('button', 'qp-more');
-        more.type = 'button';
-        more.textContent = '이 차량 사례 더 보기';
-        more.addEventListener('click', function () { showTab(SHEETS.quote.tabs(), 'case'); });
-        rb.appendChild(more);
-      }
       p.appendChild(rb);
     }
   }
@@ -2266,7 +2069,7 @@
     $('#sheetClose').addEventListener('click', function () { closeSheet(); });
     $('#sheetAsk').addEventListener('click', function () {
       // 수리비 찾기에서 차를 고른 뒤라면 문의 탭이 있다. 그쪽으로 보낸다.
-      var kind = (S.sheet === 'result' || (S.sheet === 'quote' && S.car)) ? S.sheet : null;
+      var kind = S.sheet === 'result' ? S.sheet : null;
       if (!kind) { closeSheet(); document.getElementById('offer').scrollIntoView(); return; }
       showTab(SHEETS[kind].tabs(), 'ask');
       track('ask_click', { car: S.car ? S.car.name : '' });
