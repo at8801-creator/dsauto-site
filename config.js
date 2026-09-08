@@ -213,7 +213,7 @@ window.SITE_CONFIG = {
      gtm    구글 태그 매니저. 따로 쓸 때만 채우고, 보통은 비워둡니다. */
   analytics: {
     ga4: 'G-GQQX18ER8K',     // 구글 애널리틱스 측정 ID
-    naver: '',               // 예: 'a1b2c3d4e5f6'
+    naver: '18ac86e42aed9c0',  // 네이버 애널리틱스 인증 ID
     gtm: '',                 // 예: 'GTM-XXXXXXX'
   },
 

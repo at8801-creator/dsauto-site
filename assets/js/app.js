@@ -121,7 +121,7 @@
     if (!id) return;
     var s = document.createElement('script');
     s.async = true;
-    s.src = 'https://wcs.naver.net/wcslog.js';
+    s.src = 'https://wcs.pstatic.net/wcslog.js';   // 네이버가 안내하는 주소
     s.onload = function () {
       window.wcs_add = window.wcs_add || {};
       window.wcs_add.wa = id;
