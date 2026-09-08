@@ -94,6 +94,7 @@
     var p = { event: event };
     if (params) for (var k in params) if (params.hasOwnProperty(k)) p[k] = params[k];
     window.dataLayer.push(p);
+    if (window.gtag) window.gtag('event', event, params || {});
   }
 
   function installGTM(id) {
@@ -102,6 +103,30 @@
     var s = document.createElement('script');
     s.async = true;
     s.src = 'https://www.googletagmanager.com/gtm.js?id=' + encodeURIComponent(id);
+    document.head.appendChild(s);
+  }
+
+  function installGA4(id) {
+    if (!id) return;
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(id);
+    document.head.appendChild(s);
+    window.gtag = function () { window.dataLayer.push(arguments); };
+    window.gtag('js', new Date());
+    window.gtag('config', id);
+  }
+
+  function installNaver(id) {
+    if (!id) return;
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://wcs.naver.net/wcslog.js';
+    s.onload = function () {
+      window.wcs_add = window.wcs_add || {};
+      window.wcs_add.wa = id;
+      if (window.wcs) window.wcs_do();
+    };
     document.head.appendChild(s);
   }
 
@@ -191,7 +216,10 @@
     if (CFG.lead && CFG.lead.mode === 'off') { var lf = $('#leadForm'); if (lf) lf.hidden = true; }
     if (!dial && !links.kakaoChat && !links.naverReserve) setupWarning();
 
-    installGTM((CFG.gtm || {}).containerId);
+    var an = CFG.analytics || {};
+    installGA4(an.ga4);
+    installNaver(an.naver);
+    installGTM(an.gtm);
   }
 
 
