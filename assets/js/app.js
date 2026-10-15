@@ -294,6 +294,140 @@
 
   var revShown = [];          // 실제로 사진을 찾은 후기만 남긴다
 
+  /* ---------- 가격 조정 공지 · 날짜가 되면 가격표를 바꾼다 ----------
+     두 벌(menu / menu2027)을 미리 실어두고, 손님 기기의 날짜로 고른다.
+     우리 쪽에서 돌아가는 것이 없으므로 컴퓨터를 켜 둘 필요가 없다. */
+
+  function noticeCfg() { return CFG.notice || {}; }
+
+  function switched() {
+    var d = noticeCfg().switchDate;
+    if (!d || !D.menu2027) return false;
+    return new Date() >= new Date(d + 'T00:00:00');
+  }
+
+  // 전환일이 지났으면 새 가격표로 갈아끼운다. 나머지 코드는 D.menu 만 보면 된다.
+  function applyPriceSwitch() {
+    if (switched()) D.menu = D.menu2027;
+  }
+
+  var GROUP_ORDER = ['제네시스 · 후륜', '모하비', '타스만', '현대 · 기아',
+                     '타사 국산', '수입차', '디퍼런셜 · 트랜스퍼'];
+
+  // 지금 가격표와 새 가격표를 같은 자리끼리 맞대어 본다.
+  // 새로 생긴 항목은 넣지 않는다 — 공지는 '지금 안내 중인 값이 얼마나 오르는가' 만 말한다.
+  function noticeRows() {
+    var a = D.menu, b = D.menu2027;
+    if (!a || !b) return [];
+    var byId = {};
+    (b.categories || []).forEach(function (c) { byId[c.id] = c; });
+    var out = [];
+    (a.categories || []).forEach(function (c) {
+      var n = byId[c.id];
+      if (!n || n.isNew) return;
+      ['items', 'labor'].forEach(function (k) {
+        // 새 표에 끼어든 '신규' 줄은 빼고 나서 한 줄씩 맞대야
+        // 한 칸 밀려 엉뚱한 금액끼리 비교되지 않는다.
+        var nl = (n[k] || []).filter(function (x) { return !x.isNew; });
+        (c[k] || []).forEach(function (it, i) {
+          var ni = nl[i];
+          if (!ni || typeof it.price !== 'number' || typeof ni.price !== 'number') return;
+          out.push({ group: c.group || '기타', cat: c.name,
+                     name: (k === 'labor' ? '(공임) ' : '') + it.name,
+                     old: it.price, now: ni.price });
+        });
+      });
+    });
+    var nd_all = (b.diff || []).filter(function (x) { return !x['신규']; });
+    (a.diff || []).forEach(function (d, i) {
+      var nd = nd_all[i];
+      if (!nd || typeof d.price !== 'number' || typeof nd.price !== 'number') return;
+      out.push({ group: '디퍼런셜 · 트랜스퍼', cat: '디퍼런셜',
+                 name: d['이름'], old: d.price, now: nd.price });
+    });
+    out.sort(function (x, y) {
+      var gx = GROUP_ORDER.indexOf(x.group), gy = GROUP_ORDER.indexOf(y.group);
+      return (gx < 0 ? 99 : gx) - (gy < 0 ? 99 : gy);
+    });
+    return out;
+  }
+
+  function renderNotice() {
+    var sec = $('#notice'), c = noticeCfg();
+    if (!sec) return;
+    if (!c.show || switched() || localStorage.getItem('ds-notice-off') === c.switchDate) return;
+
+    var rows = noticeRows();
+    if (!rows.length) return;
+
+    $('#noticeTag').textContent = c.tag || '공지';
+    $('#noticeTitle').textContent = c.title || '';
+    $('#noticeSub').textContent = c.sub || '';
+    $('#noticeMore').textContent = c.openLabel || '자세히 보기';
+    $('#noticePanelTitle').textContent = c.panelTitle || '';
+    $('#noticePanelSub').textContent = c.panelSub || '';
+    $('#noticeKeep').textContent = c.keep || '';
+    $('#noticeThNew').textContent = (c.switchDate || '').replace(/-/g, '.') + ' ~';
+
+    var up = rows.filter(function (r) { return r.now > r.old; });
+    var same = rows.filter(function (r) { return r.now === r.old; });
+    var pct = up.length
+      ? Math.round(up.reduce(function (a, r) { return a + (r.now - r.old) / r.old; }, 0) / up.length * 100)
+      : 0;
+    var laborUp = up.filter(function (r) { return r.name.indexOf('(공임)') === 0; }).length;
+    $('#noticeSum').innerHTML =
+      sumCell(up.length + '개', '오르는 항목') +
+      sumCell(same.length + '개', '그대로인 항목') +
+      sumCell(pct + '%', '평균 인상률') +
+      sumCell(laborUp + '건', '공임 인상');
+
+    var tb = $('#noticeRows'), lastG = null, lastC = null, html = '';
+    rows.forEach(function (r) {
+      if (r.group !== lastG) {
+        html += '<tr class="gh"><td colspan="4">' + esc(r.group) + '</td></tr>';
+        lastG = r.group; lastC = null;
+      }
+      var cls = r.now > r.old ? 'up' : (r.now < r.old ? 'dn' : 'sm');
+      var mark = r.now > r.old ? '+' + won(r.now - r.old)
+               : (r.now < r.old ? won(r.now - r.old) : '동결');
+      html += '<tr class="' + cls + '"><td class="c">' + esc(r.cat === lastC ? '' : r.cat) + '</td>' +
+              '<td class="m">' + esc(r.name) + '</td><td class="n o">' + won(r.old) + '</td>' +
+              '<td class="n p"><b>' + won(r.now) + '</b> <i>' + mark + '</i></td></tr>';
+      lastC = r.cat;
+    });
+    tb.innerHTML = html;
+
+    var links = CFG.links || {};
+    if (links.naverReserve) {
+      var a = $('#gtm-naver-notice');
+      a.href = links.naverReserve; a.target = '_blank'; a.rel = 'noopener'; a.hidden = false;
+    }
+    if (shopDial()) {
+      var t = $('#gtm-call-notice');
+      t.href = 'tel:' + shopDial();
+      t.textContent = '전화 문의 ' + ((CFG.shop || {}).phoneLabel || '');
+      t.hidden = false;
+    }
+
+    $('#noticeMore').addEventListener('click', function () {
+      var p = $('#noticePanel'), open = p.hidden;
+      p.hidden = !open;
+      this.textContent = open ? (c.closeLabel || '접기') : (c.openLabel || '자세히 보기');
+      this.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    $('#noticeClose').addEventListener('click', function () {
+      sec.hidden = true;
+      try { localStorage.setItem('ds-notice-off', c.switchDate); } catch (e) { /* 무시 */ }
+    });
+    sec.hidden = false;
+  }
+
+  function sumCell(n, label) {
+    return '<div><b>' + esc(n) + '</b><span>' + esc(label) + '</span></div>';
+  }
+
+  function shopDial() { return ((CFG.shop || {}).phoneDial || '').replace(/[^0-9+]/g, ''); }
+
   function renderReviews() {
     var list = CFG.reviews || [];
     var track = $('#revTrack'), sec = $('#reviews');
@@ -732,7 +866,7 @@
 
   /* ------------------------------------------------------------------ 로드 */
 
-  var FILES = ['catalog', 'cases', 'symptoms', 'menu', 'prices', 'reman', 'samples'];
+  var FILES = ['catalog', 'cases', 'symptoms', 'menu', 'menu2027', 'prices', 'reman', 'samples'];
 
   function load() {
     // data/data.js 가 먼저 로드되므로 보통은 여기서 끝난다.
@@ -2135,6 +2269,8 @@
   renderGallery();
   bind();
   load().then(function () {
+    applyPriceSwitch();
+    renderNotice();
     renderStepBar();
     renderBrands();
     renderCars();

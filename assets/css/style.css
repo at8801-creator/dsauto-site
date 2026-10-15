@@ -708,6 +708,88 @@ a { color: inherit; }
   html { scroll-behavior: auto; }
 }
 
+/* ══════════════════════════ 가격 조정 공지 ══════════════════════════ */
+.notice { background: var(--navy); color: #fff; }
+.notice-bar {
+  max-width: 1140px; margin: 0 auto; padding: 10px 20px;
+  display: flex; align-items: center; gap: 12px; font-size: 14px;
+}
+.notice-tag {
+  flex: none; font-size: 10.5px; font-weight: 800; letter-spacing: .06em;
+  background: var(--brand); color: #fff; padding: 3px 8px; border-radius: 2px;
+}
+.notice-t { flex: 1; min-width: 0; margin: 0; line-height: 1.55; }
+.notice-t b { font-weight: 700; }
+.notice-t span { color: rgba(255,255,255,.8); }
+.notice-more {
+  flex: none; border: 1px solid rgba(255,255,255,.42); color: #fff; background: none;
+  border-radius: 999px; padding: 4px 13px; font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.notice-more:hover { background: rgba(255,255,255,.12); }
+.notice-x {
+  flex: none; border: 0; background: none; color: rgba(255,255,255,.6);
+  font-size: 20px; line-height: 1; cursor: pointer; padding: 0 2px;
+}
+.notice-x:hover { color: #fff; }
+.notice-panel { background: var(--bg); color: var(--ink); border-top: 1px solid var(--line); }
+.notice-panel .wrap { padding-top: 22px; padding-bottom: 24px; }
+.notice-h { margin: 0 0 3px; font-size: 17px; font-weight: 800; }
+.notice-s { margin: 0 0 14px; font-size: 13.5px; color: var(--ink-2); }
+.notice-sum { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.notice-sum div {
+  flex: 1 1 140px; background: #fff; border: 1px solid var(--line);
+  border-radius: var(--r-sm); padding: 11px 13px;
+}
+.notice-sum b { display: block; font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+.notice-sum span { font-size: 12.5px; color: var(--ink-2); }
+.notice-tw {
+  max-height: 380px; overflow: auto; background: #fff;
+  border: 1px solid var(--line); border-radius: var(--r-sm);
+}
+.notice-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.notice-tbl th, .notice-tbl td {
+  text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line-2);
+}
+.notice-tbl thead th {
+  position: sticky; top: 0; background: #fff; z-index: 1;
+  font-size: 11px; font-weight: 700; color: var(--ink-3); letter-spacing: .04em;
+}
+.notice-tbl td.n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.notice-tbl td.c { color: var(--ink-3); white-space: nowrap; }
+.notice-tbl tr.gh td { background: var(--bg-2); font-weight: 800; font-size: 12px; }
+.notice-tbl tr.up td.n b { color: var(--brand); }
+.notice-tbl tr.dn td.n b { color: #1b6e48; }
+.notice-tbl tr.sm td { color: var(--ink-3); }
+.notice-tbl td.n i { font-style: normal; font-size: 11px; color: var(--ink-3); margin-left: 4px; }
+.notice-keep {
+  margin: 14px 0 0; background: var(--brand-50); border-left: 3px solid var(--brand);
+  padding: 12px 15px; font-size: 14px; font-weight: 700; border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+.notice-btns { display: flex; gap: 9px; margin-top: 14px; flex-wrap: wrap; }
+@media (max-width: 767px) {
+  .notice-bar { flex-wrap: wrap; padding: 9px 16px; gap: 8px; font-size: 13px; }
+  .notice-t { flex: 1 1 100%; order: 3; }
+  .notice-t span { display: none; }   /* 같은 말이 아래 안내문에 또 나온다 */
+  .notice-more { margin-left: auto; }
+  .notice-tw { max-height: 320px; overflow-x: hidden; }
+  /* 좁은 화면에서는 표를 옆으로 밀지 않고 한 건씩 쌓는다.
+     옆으로 밀면 정작 보여줘야 할 '바뀔 금액' 이 화면 밖으로 나간다. */
+  .notice-tbl, .notice-tbl tbody, .notice-tbl tr, .notice-tbl td { display: block; }
+  .notice-tbl thead { display: none; }
+  .notice-tbl tr { padding: 9px 0; border-bottom: 1px solid var(--line-2); }
+  .notice-tbl tr.gh { padding: 0; border-bottom: 0; }
+  .notice-tbl td { border: 0; padding: 1px 14px; font-size: 13px; }
+  .notice-tbl tr.gh td { padding: 7px 14px; font-size: 12px; }
+  .notice-tbl td.c { font-size: 11.5px; font-weight: 700; color: var(--ink-2); }
+  .notice-tbl td.c:empty { display: none; }
+  .notice-tbl td.m { line-height: 1.5; }
+  .notice-tbl td.n { display: inline-block; text-align: left; padding-top: 3px; }
+  .notice-tbl td.o { color: var(--ink-3); }
+  .notice-tbl td.o::before { content: '현재 '; font-size: 11.5px; }
+  .notice-tbl td.p { padding-left: 2px; }
+  .notice-tbl td.p::before { content: '→ '; color: var(--ink-3); }
+}
+
 /* ══════════════════════════ 손님 후기 ══════════════════════════ */
 /* 한 장씩 보여주되 양옆 후기를 조금 걸쳐 보이게 한다.
    꽉 채우면 더 있는 줄 모르고 그냥 지나친다.

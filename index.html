@@ -30,13 +30,41 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800&display=swap"
       media="print" onload="this.media='all';this.onload=null">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800&display=swap"></noscript>
-<link rel="stylesheet" href="assets/css/style.css?v=1788758657">
+<link rel="stylesheet" href="assets/css/style.css?v=1792051987">
 </head>
 <body>
 
 <a class="skip" href="#diag">본문으로 이동</a>
 
 <!-- ══════════════════════════ 헤더 ══════════════════════════ -->
+<!-- ══════════════════════════ 가격 조정 공지 ══════════════════════════ -->
+<aside class="notice" id="notice" hidden>
+  <div class="notice-bar">
+    <span class="notice-tag" id="noticeTag"></span>
+    <p class="notice-t"><b id="noticeTitle"></b> <span id="noticeSub"></span></p>
+    <button type="button" class="notice-more gtm-cta" id="noticeMore"
+            data-gtm-event="notice_open" data-gtm-location="bar" aria-expanded="false"></button>
+    <button type="button" class="notice-x" id="noticeClose" aria-label="공지 닫기">&times;</button>
+  </div>
+  <div class="notice-panel" id="noticePanel" hidden>
+    <div class="wrap">
+      <p class="notice-h" id="noticePanelTitle"></p>
+      <p class="notice-s" id="noticePanelSub"></p>
+      <div class="notice-sum" id="noticeSum"></div>
+      <div class="notice-tw"><table class="notice-tbl"><thead><tr>
+        <th>구분</th><th>항목</th><th class="n">현재</th><th class="n" id="noticeThNew"></th>
+      </tr></thead><tbody id="noticeRows"></tbody></table></div>
+      <p class="notice-keep" id="noticeKeep"></p>
+      <div class="notice-btns">
+        <a class="btn cta naver gtm-cta cta-naver" id="gtm-naver-notice"
+           data-gtm-event="naver_reserve_click" data-gtm-location="notice" href="#" hidden>무상 점검 예약</a>
+        <a class="btn cta call gtm-cta cta-call" id="gtm-call-notice"
+           data-gtm-event="call_click" data-gtm-location="notice" href="#" hidden></a>
+      </div>
+    </div>
+  </div>
+</aside>
+
 <header class="hd" id="hd">
   <div class="hd-in">
     <a class="hd-logo" href="#top">
@@ -444,8 +472,8 @@
 
 <!-- defer: 세 파일 모두 문서를 다 읽은 뒤에 실행된다. 적힌 순서는 그대로 지켜지므로
      data -> config -> app 순서가 보장되고, 화면이 먼저 그려져 첫 화면이 빨라진다. -->
-<script defer src="data/data.js?v=1789706652"></script>
-<script defer src="config.js?v=1788911214"></script>
-<script defer src="assets/js/app.js?v=1788911214"></script>
+<script defer src="data/data.js?v=1792052052"></script>
+<script defer src="config.js?v=1792052040"></script>
+<script defer src="assets/js/app.js?v=1792051960"></script>
 </body>
 </html>
