@@ -2251,6 +2251,52 @@
     });
   }
 
+  /* ---------- 주소로 바로 열기 ----------
+     네이버 광고 서브링크처럼 '가격표 미션오일' 한 곳만 가리키고 싶을 때 쓴다.
+     팝업에는 저마다의 주소가 없으므로 주소 뒤에 # 을 붙여 어디를 열지 적는다.
+
+       dsauto.me/#price-oil    미션오일
+       dsauto.me/#price-reman  재제조 미션
+       dsauto.me/#price-maint  경정비
+       dsauto.me/#price-diff   디퍼런셜 · 트랜스퍼
+       dsauto.me/#diagnose     증상으로 자가진단
+
+     뒤에 붙는 이름은 화면 메뉴가 쓰는 data-tab 과 같은 것이다.
+     탭이 늘어도 여기를 따로 고칠 필요가 없게 하기 위한 것. */
+
+  function openFromHash() {
+    var h = (location.hash || '').replace(/^#/, '');
+    if (!h) return;
+
+    if (h === 'diagnose') {
+      var card = $('#diagCard');
+      if (card) card.scrollIntoView({ block: 'start' });
+      var q = $('#carSearch');
+      if (q) q.focus({ preventScroll: true });
+      clearHash();
+      return;
+    }
+
+    var m = /^price-([a-z]+)$/.exec(h);
+    if (!m) return;
+    // 화면 메뉴에 실제로 있는 탭인지 확인하고 연다. 없는 이름이면 그냥 홈페이지가 뜬다.
+    var known = $$('[data-open-sheet="price"][data-tab]').some(function (a) {
+      return a.getAttribute('data-tab') === m[1];
+    });
+    if (!known) { clearHash(); return; }
+
+    // 광고를 눌러 들어오면 방문 기록이 이 한 칸뿐이라 뒤로가기가 곧장 사이트 밖으로 나간다.
+    // 먼저 '# 없는 홈페이지'로 바꿔두어야 뒤로가기가 팝업만 닫고 홈페이지에 머문다.
+    clearHash();
+    openSheet('price', m[1]);
+    track('sheet_open_link', { tab: m[1] });
+  }
+
+  function clearHash() {
+    try { history.replaceState(null, '', location.pathname + location.search); }
+    catch (e) { /* file:// 등에서 막히면 그냥 둔다 */ }
+  }
+
   function fail(err) {
     var local = location.protocol === 'file:';
     var c = $('#diagCard .panel-bd');
@@ -2276,6 +2322,7 @@
     renderCars();
     renderStats();
     syncNav();
+    openFromHash();          // 데이터가 다 온 뒤라야 빈 패널이 뜨지 않는다
   }).catch(fail);
 
 })();
