@@ -185,7 +185,14 @@
     var bi = $('[data-benefit-items]');
     if (bi && b.items) b.items.forEach(function (t) { bi.appendChild(el('li', '', esc(t))); });
     var lp = $('[data-lead-privacy]');
-    if (lp) lp.textContent = (CFG.lead && CFG.lead.privacyNote) || '';
+    var lr = $('[data-lead-reply]'), reply = (CFG.lead && CFG.lead.replyNote) || '';
+    if (lr && reply) {
+      lr.textContent = reply;
+      if (shop.hours) lr.appendChild(el('span', 'lead-reply-hrs', '영업시간: ' + esc(shop.hours)));
+      lr.hidden = false;
+    }
+    if (lp) lp.textContent = ((CFG.lead && CFG.lead.privacyNote) || '')
+      .replace('{보관기간}', (CFG.privacy && CFG.privacy.retention) || '');
 
     var dial = (shop.phoneDial || '').replace(/[^0-9+]/g, '');
     $$('.cta-call').forEach(function (a) { if (dial) { a.href = 'tel:' + dial; a.hidden = false; } });
@@ -206,6 +213,7 @@
     renderReviews();
     renderServices();
     renderWarranty();
+    renderFaq();
     renderMap();
     injectSchema();
 
@@ -676,6 +684,30 @@
     var n = $('[data-warranty-note]'); if (n) { n.textContent = w.note || ''; n.hidden = !w.note; }
   }
 
+  // 자주 묻는 질문. 답의 {보증} 은 warranty 설정에서 채워, 보증 기간이 두 군데 따로 적히지 않게 한다.
+  function faqItems() {
+    var w = CFG.warranty || {};
+    var wt = (w.items || []).slice(0, 2).map(function (it) { return it.t + ': ' + it.d + '.'; })
+      .concat(w.note ? [w.note] : []).join(' ');
+    return (CFG.faq || []).filter(function (f) { return f && f.q && f.a; })
+      .map(function (f) { return { q: f.q, a: f.a.replace('{보증}', wt) }; })
+      .filter(function (f) { return f.a; });
+  }
+
+  function renderFaq() {
+    var sec = $('#faq'), box = $('[data-faq]'), list = faqItems();
+    if (!sec || !box || !list.length) return;
+    box.innerHTML = '';
+    list.forEach(function (f, i) {
+      var d = el('details', 'faq-i',
+        '<summary class="faq-q">' + esc(f.q) + '</summary><p class="faq-a">' + esc(f.a) + '</p>');
+      if (i === 0) d.open = true;
+      d.addEventListener('toggle', function () { if (d.open) track('faq_open', { question: f.q }); });
+      box.appendChild(d);
+    });
+    sec.hidden = false;
+  }
+
   function renderMap() {
     var shop = CFG.shop || {}, links = CFG.links || {};
     var addr = shop.address ? (shop.address + (shop.addressDetail ? ' ' + shop.addressDetail : '')) : '';
@@ -843,13 +875,49 @@
       d.address = { '@type': 'PostalAddress', addressCountry: 'KR',
                     streetAddress: shop.address + (shop.addressDetail ? ' ' + shop.addressDetail : '') };
     }
-    if (location.protocol.indexOf('http') === 0) d.url = location.origin + location.pathname;
+    if (location.protocol.indexOf('http') === 0) {
+      d.url = location.origin + location.pathname;
+      d.image = location.origin + '/assets/img/share.jpg';
+      if (shop.logo) d.logo = location.origin + '/' + shop.logo;
+    }
+    if (shop.since) d.foundingDate = shop.since;
+    var map = CFG.map || {};
+    if (map.lat && map.lng) d.geo = { '@type': 'GeoCoordinates', latitude: map.lat, longitude: map.lng };
+    var hours = openingHours(shop.hours);
+    if (hours.length) d.openingHoursSpecification = hours;
     var same = [links.naverPlace, links.blog].filter(Boolean);
     if (same.length) d.sameAs = same;
     var sc = document.createElement('script');
     sc.type = 'application/ld+json';
     sc.textContent = JSON.stringify(d);
     document.head.appendChild(sc);
+
+    var faq = faqItems();
+    if (faq.length) {
+      var fs = document.createElement('script');
+      fs.type = 'application/ld+json';
+      fs.textContent = JSON.stringify({ '@context': 'https://schema.org', '@type': 'FAQPage',
+        mainEntity: faq.map(function (f) {
+          return { '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } };
+        }) });
+      document.head.appendChild(fs);
+    }
+  }
+
+  // '평일 08:30 ~ 17:30 · 토요일 08:30 ~ 16:30' 같은 영업시간 글을 검색엔진 형식으로 바꾼다.
+  // 알아볼 수 없는 글이면 빈 목록을 돌려줘 영업시간을 빼고 보낸다 (틀린 시간을 알리지 않기 위함).
+  function openingHours(text) {
+    var DAYS = {
+      '평일': ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+      '월~금': ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+      '토요일': ['Saturday'], '토': ['Saturday'], '일요일': ['Sunday'], '일': ['Sunday']
+    };
+    var out = [], re = /(평일|월~금|토요일|토|일요일|일)\s*(\d{1,2}:\d{2})\s*~\s*(\d{1,2}:\d{2})/g, m;
+    while ((m = re.exec(text || ''))) {
+      out.push({ '@type': 'OpeningHoursSpecification', dayOfWeek: DAYS[m[1]],
+                 opens: ('0' + m[2]).slice(-5), closes: ('0' + m[3]).slice(-5) });
+    }
+    return out;
   }
 
   // 연락처를 하나도 채우지 않으면 전환 버튼이 전부 사라지므로 눈에 띄게 알린다.
@@ -1996,7 +2064,7 @@
       msg.textContent = '접수 중입니다. 잠시만 기다려 주세요...';
 
       sendToSheet(lead.sheetUrl, f).then(function () {
-        ok(msg, '접수되었습니다. 확인 후 곧 연락드리겠습니다.');
+        ok(msg, '접수되었습니다. ' + ((CFG.lead && CFG.lead.replyNote) || '확인 후 곧 연락드리겠습니다.'));
         markSubmitted();
       }, function (err) {
         if (btn) { btn.disabled = false; btn.textContent = btnTxt || '상담 요청 보내기'; }

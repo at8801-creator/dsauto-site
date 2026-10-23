@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>페이지를 찾을 수 없습니다 | 대성오토</title>
+<meta name="robots" content="noindex">
+<!-- 이 화면은 어느 주소에서든 뜰 수 있어서, 파일 경로를 모두 / 로 시작하게 적는다 -->
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="stylesheet" href="/assets/css/style.css?v=1792726000">
+<style>
+  .nf { min-height: 100vh; display: flex; align-items: center; padding-top: 40px; padding-bottom: 40px; }
+  .nf-in { max-width: 520px; }
+  .nf-logo { height: 56px; width: auto; }
+  .nf h1 { margin-top: 26px; font-size: 26px; }
+  .nf p { margin: 10px 0 0; color: var(--ink-2); }
+  .nf-btns { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .nf-btns a { display: inline-flex; align-items: center; justify-content: center; min-height: 50px;
+               padding: 0 22px; border-radius: var(--r-sm); font-weight: 700; text-decoration: none; }
+  .nf-home { background: var(--brand); color: #fff; }
+  .nf-call { border: 1px solid var(--line); color: var(--ink); }
+</style>
+</head>
+<body>
+<main class="wrap nf">
+  <div class="nf-in">
+    <img class="nf-logo" src="/assets/img/logo.png" alt="대성오토 로고">
+    <h1>찾으시는 페이지가 없습니다</h1>
+    <p>주소가 바뀌었거나 잘못 입력되었을 수 있습니다.</p>
+    <div class="nf-btns">
+      <a class="nf-home" href="/">홈으로 가기</a>
+      <a class="nf-call" id="nfCall" href="#" hidden></a>
+    </div>
+  </div>
+</main>
+<!-- 전화번호는 config.js 에서 가져온다 -->
+<script src="/config.js?v=1792726000"></script>
+<script>
+(function () {
+  var s = (window.SITE_CONFIG || {}).shop || {}, a = document.getElementById('nfCall');
+  var dial = (s.phoneDial || '').replace(/[^0-9+]/g, '');
+  if (dial && s.phoneLabel) { a.href = 'tel:' + dial; a.textContent = '전화 ' + s.phoneLabel; a.hidden = false; }
+})();
+</script>
+</body>
+</html>
