@@ -1045,8 +1045,15 @@
         (showBrand ? ' <span class="bd">' + esc(p.brand) + '</span>' : '') + '</span>' +
         (c.hasPrice ? '<span class="tag">가격 확인</span>' : '<span class="tag gray">상담 안내</span>');
       b.addEventListener('click', function () {
+        var wasEV = isEV();
         S.car = c; S.brand = p.brand; S.spec = null;
-        renderCars(); renderSpecs(); syncNav();
+        // 전기차와 내연기관은 묻는 증상이 통째로 다르다. 차를 바꿨는데 앞서
+        // 고른 증상이 남아 있으면, 지금 화면에 없는 항목을 들고 결과로 간다.
+        if (isEV() !== wasEV) { S.syms = []; S.situ = []; S.gear = null; }
+        renderCars(); renderSpecs();
+        // 증상 화면이 이미 그려져 있을 수 있다. 차가 바뀌면 다시 그린다.
+        try { renderSitu(); renderSyms(); } catch (e) { /* 아직 안 그려졌으면 무시 */ }
+        syncNav();
         track('car_select', { brand: p.brand, car: c.name });
       });
       list.appendChild(b);
@@ -1073,10 +1080,27 @@
 
   /* --------------------------------------------------------- 2·3단계 */
 
+  /* 전기차에는 변속기가 없다. 감속기 하나로 바퀴를 돌린다.
+     '변속충격'·'슬립'·'몇 단에서' 를 물으면 손님이 답할 수가 없고,
+     답할 수 없는 질문을 받은 손님은 그냥 창을 닫는다.
+     그래서 전기차를 고르면 묻는 것 자체를 바꾼다. */
+  function isEV() { return !!(S.car && S.car.ev); }
+
+  function symList() {
+    var d = D.symptoms || {};
+    return (isEV() && d.evSymptoms) ? d.evSymptoms : (d.symptoms || []);
+  }
+  function symCounts() {
+    var d = D.symptoms || {};
+    return (isEV() && d.evCounts) ? d.evCounts : (d.counts || {});
+  }
+
   function renderSitu() {
     var g = $('#situGrid');
     g.innerHTML = '';
-    (D.symptoms.situations || []).forEach(function (s) {
+    var d = D.symptoms || {};
+    var list = (isEV() && d.evSituations) ? d.evSituations : (d.situations || []);
+    list.forEach(function (s) {
       var on = S.situ.indexOf(s.id) !== -1;
       var b = el('button', 'chip' + (on ? ' on' : ''));
       b.type = 'button';
@@ -1093,8 +1117,8 @@
   function renderSyms() {
     var g = $('#symGrid');
     g.innerHTML = '';
-    var counts = D.symptoms.counts || {};
-    (D.symptoms.symptoms || []).forEach(function (s) {
+    var counts = symCounts();
+    symList().forEach(function (s) {
       var on = S.syms.indexOf(s.id) !== -1;
       var b = el('button', 'sym-b' + (on ? ' on' : ''));
       b.type = 'button';
@@ -1112,8 +1136,12 @@
       g.appendChild(b);
     });
 
+    // '몇 단에서' 는 전기차에 물을 수 없는 질문이라 통째로 감춘다
+    var row = $('#gearRow');
+    if (row) row.hidden = isEV();
     var gc = $('#gearChips');
     gc.innerHTML = '';
+    if (isEV()) { S.gear = null; return; }
     (D.symptoms.gears || []).forEach(function (gear) {
       var b = el('button', 'chip' + (S.gear === gear ? ' on' : ''));
       b.type = 'button';
@@ -1184,20 +1212,33 @@
     경고등: '경고등이 들어온 뒤로 운전할 때마다 신경 쓰이셨을 겁니다.',
     기어불량: '특정 단에 고정되면 주행 자체가 불안해집니다.',
     후진불량: '후진이 안 되면 주차할 때마다 곤란하셨을 겁니다.',
-    주행불가: '차가 움직이지 않는 상황이면 우선 견인 상담부터 도와드립니다.'
+    주행불가: '차가 움직이지 않는 상황이면 우선 견인 상담부터 도와드립니다.',
+
+    EV주행소음: '전기차는 조용해서 작은 소리도 크게 들립니다. 신경 쓰이셨을 겁니다.',
+    EV가감속소음: '페달을 밟고 뗄 때마다 들리면 운전 내내 거슬리셨을 겁니다.',
+    EV저속소음: '저속에서 나는 소리는 하체에서 올라오는 경우가 많습니다.',
+    EV소음기타: '언제 나는지 딱 집기 어려우셔도 괜찮습니다. 시운전으로 같이 찾습니다.',
+    EV진동: '떨림은 참고 타시는 분이 많지만, 원인은 대개 따로 있습니다.',
+    EV누유: '바닥에 기름 자국이 보이면 미루지 않는 게 좋습니다.',
+    EV경고등: '경고등이 들어온 뒤로 운전할 때마다 신경 쓰이셨을 겁니다.',
+    EV주행불가: '차가 움직이지 않는 상황이면 우선 견인 상담부터 도와드립니다.'
   };
+  // 내연기관 목록과 전기차 목록을 둘 다 뒤진다. 결과 화면과 접수 내용은
+  // 손님이 어느 쪽을 골랐든 같은 함수로 이름을 찾는다.
+  function pick(id, a, b) {
+    var all = ((D.symptoms || {})[a] || []).concat((D.symptoms || {})[b] || []);
+    var f = all.filter(function (x) { return x.id === id; })[0];
+    return f ? f.label : id;
+  }
+
   function situLabels() {
-    return S.situ.map(function (id) {
-      var f = ((D.symptoms || {}).situations || []).filter(function (x) { return x.id === id; })[0];
-      return f ? f.label : id;
-    });
+    return S.situ.map(function (id) { return pick(id, 'situations', 'evSituations'); });
   }
 
   // 증상의 내부 id 를 손님이 읽는 이름으로 바꾼다.
   // (예: '기어불량' -> '기어 안 들어감', '누유' -> '오일 누유')
   function symLabel(id) {
-    var f = ((D.symptoms || {}).symptoms || []).filter(function (x) { return x.id === id; })[0];
-    return f ? f.label : id;
+    return pick(id, 'symptoms', 'evSymptoms');
   }
 
   function symLabels() {
@@ -1240,7 +1281,17 @@
     return best;
   }
 
+  // 전기차 손님에게 내연기관 메뉴를 보여주면 안 된다. 이름이 '레이 EV' 라고
+  // 레이(CVT) 값을, 'GV60' 이라고 전륜 6속 값을 띄우면 전혀 다른 금액이 뜬다.
+  // 전기차로 표시된 차는 무조건 전기차 메뉴 하나로 보낸다.
+  function evCategory() {
+    var cats = D.menu.categories || [];
+    for (var i = 0; i < cats.length; i++) if (cats[i].isEVDefault) return cats[i];
+    return null;
+  }
+
   function findCategory(carName, spec, brand) {
+    if (isEV()) { var ec = evCategory(); if (ec) return ec; }
     var hit = matchByName(carName, spec);
     if (hit.length) return hit[0];
     var cats = D.menu.categories || [], i;
@@ -1262,6 +1313,7 @@
      그래서 그 브랜드에 해당하는 정찰 메뉴를 전부 보여주고 고르게 한다. */
   function findCategories(carName, spec, brand) {
     var cats = D.menu.categories || [];
+    if (isEV()) { var ec = evCategory(); if (ec) return [ec]; }
     // 차종·사양 글자에 미션 종류가 직접 적혀 있으면 그것으로 확정된다
     var exact = matchByName(carName, spec);
     if (exact.length) return exact;
@@ -1485,10 +1537,33 @@
     var emp = el('div', 'blk empathy');
     emp.innerHTML = '<span class="car">' + esc(S.car.name + (S.spec ? ' · ' + S.spec : '')) + '</span>' +
       '<p class="h">' + esc(head) + '</p>' +
-      '<p class="p">같은 증상으로 찾아오신 분들이 실제로 어떤 수리를 받았는지 그대로 보여드립니다.</p>' +
+      '<p class="p">' + (isEV()
+        ? '전기차는 미션이 아니라 감속기·모터를 봅니다. 어디를 확인하는지 먼저 알려드립니다.'
+        : '같은 증상으로 찾아오신 분들이 실제로 어떤 수리를 받았는지 그대로 보여드립니다.') + '</p>' +
       '<div class="tags">' +
       picked.map(function (t) { return '<span>' + esc(t) + '</span>'; }).join('') + '</div>';
     p.appendChild(emp);
+
+    // 전기차는 변속기 수리 집계(밸브바디·재제조)가 아예 맞지 않는다.
+    // 없는 통계를 0%로 그려 보이느니, 무엇을 보는지 그대로 적는다.
+    if (isEV()) {
+      var evb = el('div', 'blk');
+      evb.innerHTML = '<p class="blk-h">전기차는 어디를 보나요</p>' +
+        '<p class="blk-s">전기차에는 변속기가 없습니다. 모터와 감속기가 바퀴를 돌립니다. ' +
+        '그래서 미션 수리가 아니라 <b>감속기 · 모터 · 허브베어링</b> 중 어디에서 나는 ' +
+        '소리인지를 먼저 가립니다.</p>';
+      [['감속기', '기어와 베어링이 닳으면 속도에 따라 소리가 커집니다. 전기차 소음에서 가장 흔합니다.'],
+       ['구동모터', '모터 베어링이 원인이면 가속·감속할 때 소리가 또렷해집니다.'],
+       ['허브베어링 · 타이어', '감속기 소리처럼 들리지만 바퀴 쪽인 경우가 많습니다. 먼저 걸러냅니다.']
+      ].forEach(function (x) {
+        evb.appendChild(el('p', 'mnote',
+          '<b>' + esc(x[0]) + '</b> — ' + esc(x[1])));
+      });
+      evb.appendChild(el('p', 'disclaimer',
+        '소리만으로는 어디인지 단정할 수 없습니다. 무상으로 시운전하며 같이 확인해 드립니다.'));
+      p.appendChild(evb);
+      return;
+    }
 
     var mix = computeMix();
     var symN = S.syms.reduce(function (a, s) {
@@ -1538,25 +1613,41 @@
     return limit ? out.slice(0, limit) : out;
   }
 
+  // 전기차에는 밸브바디도 재제조 미션도 없다. 영업부 장부의 '재제조 미션 교환'
+  // 칸은 전기차에서 모터·감속기를 갈았다는 뜻이라, 그 이름으로 바꿔 적는다.
+  var EV_LABEL = {
+    재제조미션교환: '모터 · 감속기 교환',
+    밸브바디교환: '감속기 교환',
+    밸브바디정비: '감속기 점검 + 오일 교환',
+    미션오일교환: '감속기 오일 교환'
+  };
+  function repairLabel(type) {
+    if (isEV() && EV_LABEL[type]) return EV_LABEL[type];
+    return LABEL[type] || type;
+  }
+
   function sampleRow(s) {
     return el('div', 'sample',
       '<div><div class="s1">' + esc(s.car) + ' \u00b7 ' +
       esc((s.syms || []).map(symLabel).join(', ')) + '</div>' +
       '<div class="s2">' + (s.ym ? esc(s.ym) + ' \u00b7 ' : '') +
-      (s.km ? '약 ' + s.km + '만km \u00b7 ' : '') + esc(LABEL[s.type] || s.type) + '</div></div>' +
+      (s.km ? '약 ' + s.km + '만km \u00b7 ' : '') + esc(repairLabel(s.type)) + '</div></div>' +
       '<div class="r">' + won(s.price) + '원</div>');
   }
 
   function paneMenu(p) {
     var cats = findCategories(S.car.name, S.spec, S.brand);
+    // 전기차에는 미션오일이 없다. 감속기 기어오일이다.
+    var oilTitle = isEV() ? '이 차량 감속기 오일 교환 정찰 가격'
+                          : '이 차량 미션오일 교환 정찰 가격';
     if (cats.length === 1) {
-      p.appendChild(menuBlock(cats[0], '이 차량 미션오일 교환 정찰 가격'));
+      p.appendChild(menuBlock(cats[0], oilTitle));
     } else if (cats.length > 1) {
       var head = el('div', 'blk');
       var why = DOMESTIC.indexOf(S.brand) === -1
         ? esc(S.brand || '수입차') + '는 장착된 미션에 따라 값이 다릅니다. '
         : '같은 차종이라도 년식에 따라 장착된 미션이 다릅니다. ';
-      head.innerHTML = '<p class="blk-h">이 차량 미션오일 교환 정찰 가격</p>' +
+      head.innerHTML = '<p class="blk-h">' + esc(oilTitle) + '</p>' +
         '<p class="blk-s">' + why +
         '차대번호를 알려주시면 어느 것인지 확인해 드립니다.</p>';
       p.appendChild(head);
@@ -1583,13 +1674,14 @@
       var mb = el('div', 'blk');
       mb.innerHTML = '<p class="blk-h">이 차량 경정비 정찰 가격</p>' +
         '<p class="blk-s">' + esc(S.car.name + (key && key !== '-' ? ' · ' + key : '')) + '</p>';
-      [['엔진오일패키지', '엔진오일 (오일+오일필터+에어크리너)'],
+      // 전기차에는 엔진이 없다. 엔진오일 줄은 내보내지 않는다.
+      (isEV() ? [] : [['엔진오일패키지', '엔진오일 (오일+오일필터+에어크리너)']]).concat([
        ['에어컨필터', '에어컨필터'], ['에어컨가스', '에어컨가스'],
        ['브레이크디스크프론트', '브레이크 디스크 / 프론트'],
        ['브레이크디스크리어', '브레이크 디스크 / 리어'],
        ['브레이크패드프론트', '브레이크 패드 / 프론트'],
        ['브레이크패드리어', '브레이크 패드 / 리어'],
-       ['브레이크오일', '브레이크 오일']].forEach(function (pair) {
+       ['브레이크오일', '브레이크 오일']]).forEach(function (pair) {
         if (!v[pair[0]]) return;
         mb.appendChild(el('div', 'mrow',
           '<span class="mn">' + esc(pair[1]) + '</span><span class="mp">' + won(v[pair[0]]) + '원</span>'));
