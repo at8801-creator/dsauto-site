@@ -1219,21 +1219,31 @@
       .sort(function (a, b) { return b.ratio - a.ratio; });
   }
 
-  function findCategory(carName, spec, brand) {
+  /* 차종·사양 글자로 미션 분류를 찾는다. 가장 긴 키워드가 이긴다
+     ('제네시스 BH 8단' 은 '제네시스BH' 보다 우선).
+     같은 길이로 걸리는 분류가 여럿이면 하나를 고르지 않고 전부 돌려준다.
+     G70·스팅어는 같은 이름 안에 JEN1 차와 JEN2 차가 섞여 있어 년식을 봐야
+     갈리는데, 홈페이지는 그걸 알 수 없다. 한쪽을 찍으면 손님이 틀린 값을 본다. */
+  function matchByName(carName, spec) {
     var cats = D.menu.categories || [];
     var key = norm((carName || '') + ' ' + (spec || ''));
-    var i, c;
-    // 가장 긴 키워드가 이긴다 ('제네시스 BH 8단' 은 '제네시스BH' 보다 우선).
-    var best = null, bestLen = 0;
-    for (i = 0; i < cats.length; i++) {
-      c = cats[i];
-      var keys = c.match || [];
+    var best = [], bestLen = 0;
+    for (var i = 0; i < cats.length; i++) {
+      var keys = cats[i].match || [];
       for (var j = 0; j < keys.length; j++) {
         var k = keys[j];
-        if (k && k.length > bestLen && key.indexOf(k) !== -1) { best = c; bestLen = k.length; }
+        if (!k || key.indexOf(k) === -1) continue;
+        if (k.length > bestLen) { best = [cats[i]]; bestLen = k.length; }
+        else if (k.length === bestLen && best.indexOf(cats[i]) === -1) best.push(cats[i]);
       }
     }
-    if (best) return best;
+    return best;
+  }
+
+  function findCategory(carName, spec, brand) {
+    var hit = matchByName(carName, spec);
+    if (hit.length) return hit[0];
+    var cats = D.menu.categories || [], i;
     for (i = 0; i < cats.length; i++) {
       if ((cats[i].brandMatch || []).indexOf(brand) !== -1) return cats[i];
     }
@@ -1252,12 +1262,11 @@
      그래서 그 브랜드에 해당하는 정찰 메뉴를 전부 보여주고 고르게 한다. */
   function findCategories(carName, spec, brand) {
     var cats = D.menu.categories || [];
-    var hit = findCategory(carName, spec, brand);
-    // 차종·사양 글자에 미션 종류가 직접 적혀 있으면 그것 하나로 확정된다
-    var key = norm((carName || '') + ' ' + (spec || ''));
-    var exact = hit && (hit.match || []).some(function (k) { return k && key.indexOf(k) !== -1; });
-    if (exact) return [hit];
+    // 차종·사양 글자에 미션 종류가 직접 적혀 있으면 그것으로 확정된다
+    var exact = matchByName(carName, spec);
+    if (exact.length) return exact;
 
+    var hit = findCategory(carName, spec, brand);
     var mine = cats.filter(function (c) { return (c.brands || []).indexOf(brand) !== -1; });
     if (mine.length) {
       cats.forEach(function (c) {           // '수입차 일반' 은 맨 뒤에 참고로 붙인다
@@ -1544,8 +1553,11 @@
       p.appendChild(menuBlock(cats[0], '이 차량 미션오일 교환 정찰 가격'));
     } else if (cats.length > 1) {
       var head = el('div', 'blk');
+      var why = DOMESTIC.indexOf(S.brand) === -1
+        ? esc(S.brand || '수입차') + '는 장착된 미션에 따라 값이 다릅니다. '
+        : '같은 차종이라도 년식에 따라 장착된 미션이 다릅니다. ';
       head.innerHTML = '<p class="blk-h">이 차량 미션오일 교환 정찰 가격</p>' +
-        '<p class="blk-s">' + esc(S.brand || '수입차') + '는 장착된 미션에 따라 값이 다릅니다. ' +
+        '<p class="blk-s">' + why +
         '차대번호를 알려주시면 어느 것인지 확인해 드립니다.</p>';
       p.appendChild(head);
       cats.forEach(function (c) { p.appendChild(menuBlock(c, c.name)); });
