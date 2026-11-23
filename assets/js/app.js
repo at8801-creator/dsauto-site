@@ -352,6 +352,13 @@
       if (!nd || typeof d.price !== 'number' || typeof nd.price !== 'number') return;
       out.push({ group: '디퍼런셜 · 트랜스퍼', cat: '디퍼런셜',
                  name: d['이름'], old: d.price, now: nd.price });
+      // 디퍼런셜은 공임을 따로 받는다. 공임만 오르는 경우가 있어 같이 본다 —
+      // 안 보면 요약의 '공임 인상 0건' 이 사실과 달라진다.
+      if (typeof d['공임'] === 'number' && typeof nd['공임'] === 'number' &&
+          d['공임'] !== nd['공임']) {
+        out.push({ group: '디퍼런셜 · 트랜스퍼', cat: '디퍼런셜',
+                   name: '(공임) ' + d['이름'], old: d['공임'], now: nd['공임'] });
+      }
     });
     out.sort(function (x, y) {
       var gx = GROUP_ORDER.indexOf(x.group), gy = GROUP_ORDER.indexOf(y.group);
